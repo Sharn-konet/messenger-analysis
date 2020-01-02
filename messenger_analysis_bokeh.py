@@ -20,13 +20,14 @@ import scrapy
 from datetime import datetime, timedelta, date
 import pandas as pd
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs
 from bokeh.models.widgets import CheckboxButtonGroup
-from bokeh.palettes import Spectral11, Category20c, viridis
+from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
 from bokeh.io import curdoc
-from bokeh.layouts import column, layout
+from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
+from bokeh.models.formatters import NumeralTickFormatter
 from copy import deepcopy
 
 #-------------------------------------------------------------------------
@@ -37,7 +38,7 @@ directories = glob("**/messages/inbox/*/*.html", recursive = True)
 directories = {directory.split("\\")[-2]: directory for directory in directories}
 message_names = {key: key.split("_")[0] for key in directories}
 
-directory = directories['THELOVECHAT_BT-aNw8Nzg']
+directory = directories['ZarinaHewlett_oscMBPNaPQ']
 
 attributes = {
     "names": "_3-96 _2pio _2lek _2lel",
@@ -63,6 +64,9 @@ dates = [datetime.strptime(date, "%b %d, %Y, %H:%M %p") for date in dates]
 reacts = scrapy.Selector(text = text, type = "html").xpath('//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract()
 reacts = [(react[1:], react[0]) for react in reacts]
 reacts = pd.DataFrame(data = reacts, columns = ['Name', 'React'])
+reacts = reacts.groupby(["React", "Name"])["React"].count()
+reacts.name = 'Count'
+reacts = reacts.reset_index()
 
 messages = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|//img[1]/@src').extract()
 # messages2 = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]/text()').extract()
@@ -106,12 +110,14 @@ name_buttons = CheckboxButtonGroup(labels = participants, active=[i for i in ran
 date_slider = DateRangeSlider(end=end_date, start = start_date, value=(start_date, end_date), step = 1)
 
 #Create a color palette to use in plotting:
-mypalette = viridis(len(participants))
-# mypalette=Category20c[20][0:len(participants)]
+# mypalette = viridis(len(participants))
+mypalette=Category20[20][0:len(participants)]
 
 # Create figures to be included:
-p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = "above")
+p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = None)
 p.toolbar.logo = None
+p.x_range.start = start_date
+p.x_range.end = end_date
 
 p2 = figure(plot_height = 80, plot_width = 800, x_axis_type='datetime', toolbar_location=None,
            x_range=(start_date, end_date))
@@ -200,14 +206,89 @@ def update_range(attr, old, new):
 name_buttons.on_click(update_graph)
 date_slider.on_change('value', update_range)
 
+date_slider_layout = row(Spacer(width = 46, height = 50, sizing_mode = "fixed"), date_slider, sizing_mode = "scale_width")
+
+plots = column(p, p2, date_slider_layout, sizing_mode = "scale_width")
+
 # Create the layout of the Bokeh application
-l = layout([
+message_timeseries = layout([
     [name_buttons],
-    [p],
-    [p2],
-    [date_slider]
+    [plots]
 ], sizing_mode="scale_width")
 
-curdoc().add_root(l)
+message_panel = Panel(child = message_timeseries, title = 'Message Data')
 
-show(l)
+#--------------------------------------------------------------------------+
+# Plotting reactions
+#--------------------------------------------------------------------------+
+unique_reacts = reacts['React'].unique()
+
+reacts = reacts.pivot(index = 'React', columns = 'Name', values = 'Count').fillna(0)
+sums = reacts.sum(axis = 1)
+
+for i in reacts.index:
+    reacts.loc[i,:] = reacts.loc[i,:].apply(lambda x: (x/sums[i]))
+
+reacts_source = ColumnDataSource(reacts)
+
+p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, 1], toolbar_location = None)
+p3.xaxis.major_label_text_font_size = "25pt"
+p3.toolbar.active_drag = None
+p3.toolbar.active_scroll = None
+
+# configure so that Bokeh chooses what (if any) scroll tool is active
+
+# p3.segment(0, "React", "Count", "React", line_width=2, line_color="green", source = reacts_source, )
+# p3.circle("Count", "React", size=15, fill_color="orange", line_color="green", line_width=3, source = reacts_source)
+
+# for i in range(len(participants)):
+#     view=CDSView(source=reacts_source, 
+#     filters=[GroupFilter(column_name='Names', group=participants[i])])
+#     p3.segment(
+#         x0 = "React",
+#         y0 = 0,
+#         x1 = "React",
+#         y1 = "Count",
+#         source = reacts_source,
+#         view = view,
+#         legend_label = participants[i],
+#         color = mypalette[i]
+#     )
+
+#     p3.circle(
+#         x = 'React',
+#         y = 'Count',
+#         source = reacts_source,
+#         view = view,
+#         color = mypalette[i]
+#     )
+
+p3.vbar_stack(
+    participants,
+    x = "React",
+    width = 0.6,
+    source = reacts_source,
+    legend_label = participants,
+    color = mypalette
+)
+
+p3.yaxis.formatter=NumeralTickFormatter(format = "0%")
+legend = p3.legend[0]
+legend.orientation = 'horizontal'
+legend.location = 'center_right'
+legend.spacing = 18
+p3.add_layout(legend, 'above')
+
+reacts_panel = layout([
+    [p3]
+], sizing_mode="scale_width")
+
+reacts_panel = Panel(child = reacts_panel, title = 'Reacts Data')
+
+tabs = Tabs(tabs = [message_panel, reacts_panel])
+
+show(tabs)
+
+curdoc().add_root(tabs)
+
+show(message_timeseries)
