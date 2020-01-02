@@ -38,7 +38,7 @@ directories = glob("**/messages/inbox/*/*.html", recursive = True)
 directories = {directory.split("\\")[-2]: directory for directory in directories}
 message_names = {key: key.split("_")[0] for key in directories}
 
-directory = directories['ZarinaHewlett_oscMBPNaPQ']
+directory = directories['THELOVECHAT_BT-aNw8Nzg']
 
 attributes = {
     "names": "_3-96 _2pio _2lek _2lel",
@@ -140,8 +140,21 @@ for i in range(len(participants)):
     p.line(
         x='Dates',
         y='messageCount',
+        alpha = 0.275,
         source=source,
         view=view,
+        muted_color=mypalette[i], 
+        muted_alpha=0.2,
+        legend_label = participants[i],
+        color = mypalette[i]
+    )
+
+    p.circle(
+        x = 'Dates',
+        y = 'messageCount',
+        alpha = 0.45,
+        source = source,
+        view = view,
         muted_color=mypalette[i], 
         muted_alpha=0.2,
         legend_label = participants[i],
@@ -269,7 +282,8 @@ p3.vbar_stack(
     width = 0.6,
     source = reacts_source,
     legend_label = participants,
-    color = mypalette
+    color = mypalette,
+    fill_alpha = 0.5
 )
 
 p3.yaxis.formatter=NumeralTickFormatter(format = "0%")
