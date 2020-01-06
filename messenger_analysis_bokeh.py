@@ -22,10 +22,10 @@ import pandas as pd
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation
 from bokeh.models.widgets import CheckboxButtonGroup
-from bokeh.palettes import Spectral11, Category20c, viridis
+from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
 from bokeh.io import curdoc
-from bokeh.layouts import column, layout
+from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
 from copy import deepcopy
 
@@ -46,72 +46,113 @@ attributes = {
     "images": "_2yuc _3-96",
     "reacts": "_tqp",
     "participants": "_2lek",
-    "group_name": "_3b0d"
+    "group_name": "_3b0d",
+    "plan_name": "_12gz"
 }
 
 with open(directory, 'rb') as data:
     text = data.read()
 
-title = scrapy.Selector(text = text, type = "html").xpath('//title/text()').extract()[0]
+data = scrapy.Selector(text = text, type = 'html')
 
-names = scrapy.Selector(text = text, type = "html").xpath('//div[@class="' + attributes['names'] + '"]/text()').extract()
-participants = list(set(names))
+title = data.xpath('//title/text()').extract()[0]
 
-dates = scrapy.Selector(text=text, type='html').xpath('//div[@class="' + attributes['dates'] + '"]/text()').extract()
-dates = [datetime.strptime(date, "%b %d, %Y, %H:%M %p") for date in dates]
+alternative = True
 
-reacts = scrapy.Selector(text = text, type = "html").xpath('//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract()
-reacts = [(react[1:], react[0]) for react in reacts]
-reacts = pd.DataFrame(data = reacts, columns = ['Name', 'React'])
+if alternative is False:
+    names = data.xpath('//div[@class="' + attributes['Name'] + '"]/text()').extract()
+    participants = list(set(names))
 
-messages = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|//img[1]/@src').extract()
-# messages2 = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]/text()').extract()
-# messages3 = scrapy.Selector(text=text, type ='html').xpath('//img[@class="' + attributes['images'] + '"]').extract()
-# messages4 = scrapy.Selector(text=text, type ='html').xpath('//img/@src').extract()
+    dates = scrapy.Selector(text=text, type='html').xpath('//div[@class="' + attributes['Date'] + '"]/text()').extract()
+    dates = [datetime.strptime(date, "%b %d, %Y, %H:%M %p") for date in dates]
 
-# lebndifferences = list(set(messages) - set(messages2))
+    reacts = data.xpath('//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract()
+    reacts = [(react[1:], react[0]) for react in reacts]
+    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'React'])
+    reacts = reacts.groupby(["React", "Name"])["React"].count()
+    reacts.name = 'Count'
+    reacts = reacts.reset_index()
 
-#-------------------------------------------------------------------------
-# Handle <br> tags:
-#-------------------------------------------------------------------------
+    messages = data.xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|//img[1]/@src').extract()
+    # messages2 = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]/text()').extract()
+    # messages3 = scrapy.Selector(text=text, type ='html').xpath('//img[@class="' + attributes['images'] + '"]').extract()
+    # messages4 = scrapy.Selector(text=text, type ='html').xpath('//img/@src').extract()
 
-breaks = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//br/../text()').extract()
-break_indices = [breaks.index(value) for value in breaks if value[0] != ' ']
-break_indices.append(len(breaks))
+    # lebndifferences = list(set(messages) - set(messages2))
 
-for i in range(len(break_indices)-1):
-    replace_index = messages.index(breaks[break_indices[i]])
-    new_message = "\n".join(breaks[(break_indices[i]):break_indices[i+1]])
-    messages[replace_index] = new_message
-    del messages[replace_index + 1 : replace_index + break_indices[i+1] - break_indices[i]]
+    #-------------------------------------------------------------------------
+    # Handle <br> tags:
+    #-------------------------------------------------------------------------
 
-# Create pandas dataframe from extracted datum:
-messages = list(zip(names, dates))
-df_master = pd.DataFrame(data = messages, columns = ['Names', 'Dates'])
-for index in df_master.index:
-        df_master.loc[index, 'Dates'] = df_master.loc[index, 'Dates'] - timedelta(hours = df_master.loc[index, 'Dates'].hour, minutes = df_master.loc[index, 'Dates'].minute)
+    breaks = data.xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//br/../text()').extract()
+    break_indices = [breaks.index(value) for value in breaks if value[0] != ' ']
+    break_indices.append(len(breaks))
 
-#messages = scrapy.Selector(text=text, type ='html').xpath('(//div[@class="' + attributes['message'] + '"]/div/div/text()|(//div[@class="' + attributes['message'] + '"]/div//a/@href)[1])').extract()
+    for i in range(len(break_indices)-1):
+        replace_index = messages.index(breaks[break_indices[i]])
+        new_message = "\n".join(breaks[(break_indices[i]):break_indices[i+1]])
+        messages[replace_index] = new_message
+        del messages[replace_index + 1 : replace_index + break_indices[i+1] - break_indices[i]]
+
+    # Create pandas dataframe from extracted datum:
+    messages = list(zip(names, dates))
+    df_master = pd.DataFrame(data = messages, columns = ['Name', 'Date'])
+    for index in df_master.index:
+            df_master.loc[index, 'Date'] = df_master.loc[index, 'Date'] - timedelta(hours = df_master.loc[index, 'Date'].hour, minutes = df_master.loc[index, 'Date'].minute)
+
+    #messages = scrapy.Selector(text=text, type ='html').xpath('(//div[@class="' + attributes['message'] + '"]/div/div/text()|(//div[@class="' + attributes['message'] + '"]/div//a/@href)[1])').extract()
+
+if alternative:
+    boxes = data.xpath('//div[@class="pam _3-95 _2pi0 _2lej uiBoxWhite noborder"]')
+    del boxes[0] # removes initial box which lists participants of the chat
+    messages_structured = [0]*len(boxes)
+    i = 0 
+
+    participants = data.xpath('//div[@class="' + attributes['participants'] + '"]//text()').extract()[0].split(': ')[1].split(', ')
+    participants.append(participants[-1].split(' and ')[1])
+    participants[-2] = participants[-2].split(' and ')[0]
+
+    for message in boxes:
+        messages_structured[i] = {'Message': message.xpath('.//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|.//audio/@src|.//a/@href').extract(),
+                            'Date': message.xpath('.//div[@class="' + attributes['dates'] + '"]/text()').extract()[0],
+                            'Reacts': message.xpath('.//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract(),
+                            'Name': message.xpath('.//div[@class="' + attributes['names'] + '"]/text()').extract()[0]}
+
+        messages_structured[i]['Reacts'] = [(react[1:], react[0]) for react in messages_structured[i]['Reacts']]
+
+        messages_structured[i]['Date'] = datetime.strptime(messages_structured[i]['Date'], "%b %d, %Y, %H:%M %p")
+        messages_structured[i]['Date'] = messages_structured[i]['Date'].replace(hour = 0, minute = 0)
+
+        i += 1
+
+    df_master = pd.DataFrame(messages_structured)
+
+#data[data['reacts'].apply(len) == max(data['reacts'].apply(len))]
+## - Code which selects all messages which got the maximum number of reacts.
+##   Can add an additional ['reacts'] to then see what the reacts are
+
 
 #-------------------------------------------------------------------------
 # Plot Data:
 #-------------------------------------------------------------------------
 
 # Find x-axis limits:
-start_date = min(df_master.loc[:,'Dates'])
-end_date = max(df_master.loc[:,'Dates'])
+start_date = min(df_master.loc[:,'Date'])
+end_date = max(df_master.loc[:,'Date'])
 
 # Create widget objects:
 name_buttons = CheckboxButtonGroup(labels = participants, active=[i for i in range(len(participants))])
 date_slider = DateRangeSlider(end=end_date, start = start_date, value=(start_date, end_date), step = 1)
 
 #Create a color palette to use in plotting:
-mypalette = viridis(len(participants))
-# mypalette=Category20c[20][0:len(participants)]
+# mypalette = viridis(len(participants))
+mypalette=Category20[20][0:len(participants)]
 
 # Create figures to be included:
-p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = "above")
+p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = None)
 p.toolbar.logo = None
+p.x_range.start = start_date
+p.x_range.end = end_date
 
 p2 = figure(plot_height = 80, plot_width = 800, x_axis_type='datetime', toolbar_location=None,
            x_range=(start_date, end_date))
@@ -122,18 +163,18 @@ p2.grid.grid_line_color=None
 
 box = BoxAnnotation(fill_alpha=0.5, line_alpha=0.5, level='underlay', left=start_date, right=end_date)
 
-df_master['messageCount'] = 1
-messages = df_master.groupby(['Names', 'Dates']).count().reset_index()
+messages = df_master.groupby(['Name', 'Date']).count().reset_index()
+messages = messages.loc[:, messages.columns != 'Reacts']
 
 source = ColumnDataSource(data = messages)
 
 # Plot a line for each person onto both figures:
 for i in range(len(participants)):
     view=CDSView(source=source, 
-    filters=[GroupFilter(column_name='Names', group=participants[i])])
+    filters=[GroupFilter(column_name='Name', group=participants[i])])
     p.line(
-        x='Dates',
-        y='messageCount',
+        x='Date',
+        y='Message',
         source=source,
         view=view,
         muted_color=mypalette[i], 
@@ -143,8 +184,8 @@ for i in range(len(participants)):
     )
 
     p2.line(
-        x='Dates',
-        y='messageCount',
+        x='Date',
+        y='Message',
         source=source,
         view=view,
         color = mypalette[i]
@@ -165,16 +206,16 @@ p2.add_layout(box)
 def subset_data(initial = False):
     df = df_master
     selected_names = [name_buttons.labels[i] for i in name_buttons.active]
-    df = df[df['Names'].isin(selected_names)]
-    df = df.groupby(by = ['Names', 'Dates']).count().reset_index()
+    df = df[df['Name'].isin(selected_names)]
+    df = df.groupby(by = ['Name', 'Date']).count().reset_index()
     return df
 
 def update_graph(active_labels):
     print(active_labels)
     df = subset_data()
     source.data = dict(
-        Dates=df['Dates'],
-        messageCount=df['messageCount'],
+        Dates=df['Date'],
+        Message=df['Message'],
         Names=df["Names"],
     )
 
@@ -182,8 +223,8 @@ def update_range(attr, old, new):
     #df = subset_data()
     start = datetime.fromtimestamp(new[0]/1e3)
     end = datetime.fromtimestamp(new[1]/1e3)
-    #df = df[df['Dates'] >= start]
-    #df = df[df['Dates'] <= end]
+    #df = df[df['Date'] >= start]
+    #df = df[df['Date'] <= end]
     p.x_range.start = start
     p.x_range.end = end
 
@@ -191,8 +232,8 @@ def update_range(attr, old, new):
     box.right = end
 
     # source.data = dict(
-    #     Dates=df['Dates'],
-    #     messageCount=df['messageCount'],
+    #     Dates=df['Date'],
+    #     Message=df['Message'],
     #     Names=df["Names"],
     # )
 
@@ -200,14 +241,59 @@ def update_range(attr, old, new):
 name_buttons.on_click(update_graph)
 date_slider.on_change('value', update_range)
 
+date_slider_layout = row(Spacer(width = 46, height = 50, sizing_mode = "fixed"), date_slider, sizing_mode = "scale_width")
+
+plots = column(p, p2, date_slider_layout, sizing_mode = "scale_width")
+
 # Create the layout of the Bokeh application
-l = layout([
+message_timeseries = layout([
     [name_buttons],
-    [p],
-    [p2],
-    [date_slider]
+    [plots]
 ], sizing_mode="scale_width")
 
-curdoc().add_root(l)
+#--------------------------------------------------------------------------+
+# Plotting reactions
+#--------------------------------------------------------------------------+
+# unique_reacts = reacts['React'].unique()
 
-show(l)
+# reacts_source = ColumnDataSource(reacts)
+
+# p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, max(reacts['Count'])*1.2])
+# p3.xaxis.major_label_text_font_size = "25pt"
+# p3.segment(0, "React", "Count", "React", line_width=2, line_color="green", source = reacts_source, )
+# p3.circle("Count", "React", size=15, fill_color="orange", line_color="green", line_width=3, source = reacts_source)
+
+# for i in range(len(participants)):
+#     view=CDSView(source=reacts_source, 
+#     filters=[GroupFilter(column_name='Name', group=participants[i])])
+#     p3.segment(
+#         x0 = "React",
+#         y0 = 0,
+#         x1 = "React",
+#         y1 = "Count",
+#         source = reacts_source,
+#         view = view,
+#         color = mypalette[i]
+#     )
+
+#     p3.circle(
+#         x = 'React',
+#         y = 'Count',
+#         source = reacts_source,
+#         view = view,
+#         color = mypalette[i]
+#     )
+
+# p3.legend.click_policy="mute"
+
+
+
+# test = layout([
+#     [p3]
+# ], sizing_mode="scale_width")
+
+# show(test)
+
+curdoc().add_root(message_timeseries)
+
+show(message_timeseries)
