@@ -20,13 +20,14 @@ import scrapy
 from datetime import datetime, timedelta, date
 import pandas as pd
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
 from bokeh.io import curdoc
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
+from bokeh.models.formatters import NumeralTickFormatter
 from copy import deepcopy
 
 #-------------------------------------------------------------------------
@@ -60,15 +61,15 @@ title = data.xpath('//title/text()').extract()[0]
 alternative = True
 
 if alternative is False:
-    names = data.xpath('//div[@class="' + attributes['Name'] + '"]/text()').extract()
+    names = data.xpath('//div[@class="' + attributes['names'] + '"]/text()').extract()
     participants = list(set(names))
 
-    dates = scrapy.Selector(text=text, type='html').xpath('//div[@class="' + attributes['Date'] + '"]/text()').extract()
+    dates = scrapy.Selector(text=text, type='html').xpath('//div[@class="' + attributes['dates'] + '"]/text()').extract()
     dates = [datetime.strptime(date, "%b %d, %Y, %H:%M %p") for date in dates]
 
     reacts = data.xpath('//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract()
     reacts = [(react[1:], react[0]) for react in reacts]
-    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'React'])
+    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
     reacts = reacts.groupby(["React", "Name"])["React"].count()
     reacts.name = 'Count'
     reacts = reacts.reset_index()
@@ -127,6 +128,13 @@ if alternative:
 
     df_master = pd.DataFrame(messages_structured)
 
+    reacts = list(df_master['Reacts'])
+    reacts = [react[0] for react in reacts if len(react) > 0]
+    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
+    reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
+    reacts.name = 'Count'
+    reacts = reacts.reset_index()
+
 #data[data['reacts'].apply(len) == max(data['reacts'].apply(len))]
 ## - Code which selects all messages which got the maximum number of reacts.
 ##   Can add an additional ['reacts'] to then see what the reacts are
@@ -177,6 +185,19 @@ for i in range(len(participants)):
         y='Message',
         source=source,
         view=view,
+        alpha=0.3,
+        muted_color=mypalette[i], 
+        muted_alpha=0.2,
+        legend_label = participants[i],
+        color = mypalette[i]
+    )
+
+    p.circle(
+        x = 'Date',
+        y = 'Message',
+        alpha = 0.45,
+        source = source,
+        view = view,
         muted_color=mypalette[i], 
         muted_alpha=0.2,
         legend_label = participants[i],
@@ -214,9 +235,9 @@ def update_graph(active_labels):
     print(active_labels)
     df = subset_data()
     source.data = dict(
-        Dates=df['Date'],
+        Date=df['Date'],
         Message=df['Message'],
-        Names=df["Names"],
+        Name=df["Name"],
     )
 
 def update_range(attr, old, new):
@@ -251,21 +272,34 @@ message_timeseries = layout([
     [plots]
 ], sizing_mode="scale_width")
 
+message_panel = Panel(child = message_timeseries, title = 'Message Data')
+
 #--------------------------------------------------------------------------+
 # Plotting reactions
 #--------------------------------------------------------------------------+
-# unique_reacts = reacts['React'].unique()
+unique_reacts = reacts['Reacts'].unique()
 
-# reacts_source = ColumnDataSource(reacts)
+reacts = reacts.pivot(index = 'Reacts', columns = 'Name', values = 'Count').fillna(0)
+sums = reacts.sum(axis = 1)
 
-# p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, max(reacts['Count'])*1.2])
-# p3.xaxis.major_label_text_font_size = "25pt"
+for i in reacts.index:
+    reacts.loc[i,:] = reacts.loc[i,:].apply(lambda x: (x/sums[i]))
+
+reacts_source = ColumnDataSource(reacts)
+
+p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, 1], toolbar_location = None)
+p3.xaxis.major_label_text_font_size = "25pt"
+p3.toolbar.active_drag = None
+p3.toolbar.active_scroll = None
+
+# configure so that Bokeh chooses what (if any) scroll tool is active
+
 # p3.segment(0, "React", "Count", "React", line_width=2, line_color="green", source = reacts_source, )
 # p3.circle("Count", "React", size=15, fill_color="orange", line_color="green", line_width=3, source = reacts_source)
 
 # for i in range(len(participants)):
 #     view=CDSView(source=reacts_source, 
-#     filters=[GroupFilter(column_name='Name', group=participants[i])])
+#     filters=[GroupFilter(column_name='Names', group=participants[i])])
 #     p3.segment(
 #         x0 = "React",
 #         y0 = 0,
@@ -273,27 +307,45 @@ message_timeseries = layout([
 #         y1 = "Count",
 #         source = reacts_source,
 #         view = view,
+#         legend_label = participants[i],
 #         color = mypalette[i]
 #     )
 
 #     p3.circle(
-#         x = 'React',
+#         x = 'Reacts',
 #         y = 'Count',
 #         source = reacts_source,
 #         view = view,
 #         color = mypalette[i]
 #     )
 
-# p3.legend.click_policy="mute"
+p3.vbar_stack(
+    participants,
+    x = "Reacts",
+    width = 0.6,
+    source = reacts_source,
+    legend_label = participants,
+    color = mypalette,
+    fill_alpha = 0.5
+)
 
+p3.yaxis.formatter=NumeralTickFormatter(format = "0%")
+legend = p3.legend[0]
+legend.orientation = 'horizontal'
+legend.location = 'center_right'
+legend.spacing = 18
+p3.add_layout(legend, 'above')
 
+reacts_panel = layout([
+    [p3]
+], sizing_mode="scale_width")
 
-# test = layout([
-#     [p3]
-# ], sizing_mode="scale_width")
+reacts_panel = Panel(child = reacts_panel, title = 'Reacts Data')
 
-# show(test)
+tabs = Tabs(tabs = [message_panel, reacts_panel])
 
-curdoc().add_root(message_timeseries)
+show(tabs)
+
+curdoc().add_root(tabs)
 
 show(message_timeseries)
