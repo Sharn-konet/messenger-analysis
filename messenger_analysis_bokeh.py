@@ -60,84 +60,41 @@ data = scrapy.Selector(text = text, type = 'html')
 
 title = data.xpath('//title/text()').extract()[0]
 
-alternative = True
+boxes = data.xpath('//div[@class="pam _3-95 _2pi0 _2lej uiBoxWhite noborder"]')
+del boxes[0] # removes initial box which lists participants of the chat
+messages = [0]*len(boxes)
+i = 0 
 
-if alternative is False:
-    names = data.xpath('//div[@class="' + attributes['names'] + '"]/text()').extract()
-    participants = list(set(names))
+for message in boxes:
+    messages[i] = {'Message': message.xpath('.//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|.//audio/@src|.//a/@href').extract(),
+                        'Date': message.xpath('.//div[@class="' + attributes['dates'] + '"]/text()').extract()[0],
+                        'Reacts': message.xpath('.//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract(),
+                        'Name': message.xpath('.//div[@class="' + attributes['names'] + '"]/text()').extract()[0]}
 
-    dates = scrapy.Selector(text=text, type='html').xpath('//div[@class="' + attributes['dates'] + '"]/text()').extract()
-    dates = [datetime.strptime(date, "%b %d, %Y, %H:%M %p") for date in dates]
+    messages[i]['Reacts'] = [(react[1:], react[0]) for react in messages[i]['Reacts']]
 
-    reacts = data.xpath('//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract()
-    reacts = [(react[1:], react[0]) for react in reacts]
-    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
-    reacts = reacts.groupby(["React", "Name"])["React"].count()
-    reacts.name = 'Count'
-    reacts = reacts.reset_index()
+    messages[i]['Date'] = datetime.strptime(messages[i]['Date'], "%b %d, %Y, %H:%M %p")
 
-    messages = data.xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|//img[1]/@src').extract()
-    # messages2 = scrapy.Selector(text=text, type ='html').xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]/text()').extract()
-    # messages3 = scrapy.Selector(text=text, type ='html').xpath('//img[@class="' + attributes['images'] + '"]').extract()
-    # messages4 = scrapy.Selector(text=text, type ='html').xpath('//img/@src').extract()
+    # Should replace with resample to keep messages together and stuff.
+    # - Might not work as there are multiple of the same date, so dates dont work as good index
+    messages[i]['Date'] = messages[i]['Date'].replace(hour = 0, minute = 0)
 
-    # lebndifferences = list(set(messages) - set(messages2))
+    i += 1
 
-    #-------------------------------------------------------------------------
-    # Handle <br> tags:
-    #-------------------------------------------------------------------------
+message_df = pd.DataFrame(messages)
+participants = message_df.Name.unique()
+participants = list(participants)
 
-    breaks = data.xpath('//div[@class="' + attributes['message'] + '"]/div/div[2]//br/../text()').extract()
-    break_indices = [breaks.index(value) for value in breaks if value[0] != ' ']
-    break_indices.append(len(breaks))
+# Can remove Name column beforehand and then remove the drop = True statement, definitely faster
+# message_df = message_df.set_index('Date').groupby('Name').resample('W', convention='end').apply(lambda x: [*x]).drop(columns="Name").reset_index()
+# message_df.loc[:, 'Message_Count'] = message_df.loc[:, 'Message'].apply(len)
 
-    for i in range(len(break_indices)-1):
-        replace_index = messages.index(breaks[break_indices[i]])
-        new_message = "\n".join(breaks[(break_indices[i]):break_indices[i+1]])
-        messages[replace_index] = new_message
-        del messages[replace_index + 1 : replace_index + break_indices[i+1] - break_indices[i]]
-
-    # Create pandas dataframe from extracted datum:
-    messages = list(zip(names, dates))
-    df_master = pd.DataFrame(data = messages, columns = ['Name', 'Date'])
-    for index in df_master.index:
-            df_master.loc[index, 'Date'] = df_master.loc[index, 'Date'] - timedelta(hours = df_master.loc[index, 'Date'].hour, minutes = df_master.loc[index, 'Date'].minute)
-
-    #messages = scrapy.Selector(text=text, type ='html').xpath('(//div[@class="' + attributes['message'] + '"]/div/div/text()|(//div[@class="' + attributes['message'] + '"]/div//a/@href)[1])').extract()
-
-if alternative:
-    boxes = data.xpath('//div[@class="pam _3-95 _2pi0 _2lej uiBoxWhite noborder"]')
-    del boxes[0] # removes initial box which lists participants of the chat
-    messages_structured = [0]*len(boxes)
-    i = 0 
-
-    participants = data.xpath('//div[@class="' + attributes['participants'] + '"]//text()').extract()[0].split(': ')[1].split(', ')
-    participants.append(participants[-1].split(' and ')[1])
-    participants[-2] = participants[-2].split(' and ')[0]
-
-    for message in boxes:
-        messages_structured[i] = {'Message': message.xpath('.//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|.//audio/@src|.//a/@href').extract(),
-                            'Date': message.xpath('.//div[@class="' + attributes['dates'] + '"]/text()').extract()[0],
-                            'Reacts': message.xpath('.//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract(),
-                            'Name': message.xpath('.//div[@class="' + attributes['names'] + '"]/text()').extract()[0]}
-
-        messages_structured[i]['Reacts'] = [(react[1:], react[0]) for react in messages_structured[i]['Reacts']]
-
-        messages_structured[i]['Date'] = datetime.strptime(messages_structured[i]['Date'], "%b %d, %Y, %H:%M %p")
-
-        # Should replace with resample to keep messages together and stuff.
-        messages_structured[i]['Date'] = messages_structured[i]['Date'].replace(hour = 0, minute = 0)
-
-        i += 1
-
-    df_master = pd.DataFrame(messages_structured)
-
-    reacts = list(df_master['Reacts'])
-    reacts = [react[0] for react in reacts if len(react) > 0]
-    reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
-    reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
-    reacts.name = 'Count'
-    reacts = reacts.reset_index()
+reacts = list(message_df['Reacts'])
+reacts = [react[0] for react in reacts if len(react) > 0]
+reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
+reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
+reacts.name = 'Count'
+reacts = reacts.reset_index()
 
 #data[data['reacts'].apply(len) == max(data['reacts'].apply(len))]
 ## - Code which selects all messages which got the maximum number of reacts.
@@ -149,8 +106,8 @@ if alternative:
 #-------------------------------------------------------------------------
 
 # Find x-axis limits:
-start_date = min(df_master.loc[:,'Date'])
-end_date = max(df_master.loc[:,'Date'])
+start_date = min(message_df.loc[:,'Date'])
+end_date = max(message_df.loc[:,'Date'])
 
 # Create widget objects:
 name_buttons = CheckboxButtonGroup(labels = participants, active=[i for i in range(len(participants))])
@@ -159,7 +116,6 @@ date_slider = DateRangeSlider(end=end_date, start = start_date, value=(start_dat
 #Create a color palette to use in plotting:
 # mypalette = viridis(len(participants))
 mypalette=Category20[20][0:len(participants)]
-
 
 # Create figures to be included:
 p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = None)
@@ -173,7 +129,7 @@ messages_tooltip = HoverTool(
     tooltips = [
         ('Name', '@Name'),
         ('Message Count', '@Message'),
-        ('Date', '@Date') #{%D/%M/%Y}
+        ('Date', '@Date{%A, %e %B %Y}') #
     ],
     formatters = {
         'Date': 'datetime'
@@ -181,7 +137,6 @@ messages_tooltip = HoverTool(
 )
 
 p.add_tools(messages_tooltip)
-
 
 p2 = figure(plot_height = 80, plot_width = 800, x_axis_type='datetime', toolbar_location=None,
            x_range=(start_date, end_date))
@@ -194,7 +149,7 @@ p2.toolbar.active_scroll = None
 
 box = BoxAnnotation(fill_alpha=0.5, line_alpha=0.5, level='underlay', left=start_date, right=end_date)
 
-messages = df_master.groupby(['Name', 'Date']).count().reset_index()
+messages = message_df.groupby(['Name', 'Date']).count().reset_index()
 messages = messages.loc[:, messages.columns != 'Reacts']
 
 source = ColumnDataSource(data = messages)
@@ -305,7 +260,7 @@ p2.add_layout(box)
 #--------------------------------------------------------------------------+
 
 def subset_data(initial = False):
-    df = df_master
+    df = message_df
     selected_names = [name_buttons.labels[i] for i in name_buttons.active]
     df = df[df['Name'].isin(selected_names)]
     df = df.groupby(by = ['Name', 'Date']).count().reset_index()
