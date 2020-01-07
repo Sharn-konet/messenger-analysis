@@ -16,4 +16,6 @@
 *.mp3
 *.txt
 *.pyc
+*.json
+*.rtf
 .vscode/launch.json

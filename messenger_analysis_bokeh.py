@@ -19,6 +19,8 @@ from glob import glob
 import scrapy
 from datetime import datetime, timedelta, date
 import pandas as pd
+import numpy as np
+from scipy.optimize import curve_fit
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs
 from bokeh.models.widgets import CheckboxButtonGroup
@@ -185,7 +187,7 @@ for i in range(len(participants)):
         y='Message',
         source=source,
         view=view,
-        alpha=0.3,
+        alpha=0.45,
         muted_color=mypalette[i], 
         muted_alpha=0.2,
         legend_label = participants[i],
@@ -195,7 +197,7 @@ for i in range(len(participants)):
     p.circle(
         x = 'Date',
         y = 'Message',
-        alpha = 0.45,
+        alpha = 0.55,
         source = source,
         view = view,
         muted_color=mypalette[i], 
@@ -211,6 +213,63 @@ for i in range(len(participants)):
         view=view,
         color = mypalette[i]
     )
+
+# total_messages = messages.groupby('Date').sum()
+# total_messages = total_messages.resample('M', convention='end').sum().reset_index() # Convert to a weekly aggregation of messages
+
+# # See if your chat is dying:
+# def curve(x, a, b, c):
+#     return a * np.exp(-b * x) + c
+
+# x_data = total_messages.Date.array.asi8/ 1e18
+# y_data = total_messages['Message'].values
+
+# popt, pcov = curve_fit(curve, x_data, y_data, maxfev = 9001)
+
+# x_data_step = x_data[1] - x_data[0]
+
+# x_data = list(x_data)
+
+# for _ in range(12):
+#     x_data.append(x_data[-1] + x_data_step)
+
+# x_data = np.array(x_data)
+
+# y_prediction = curve(x_data, *popt)
+
+# total_messages['Prediction'] = y_prediction
+
+# total_messages_cds = ColumnDataSource(data=total_messages)
+
+# p.line(
+#     x='Date',
+#     y='Message',
+#     source=total_messages_cds,
+#     alpha=0.45, 
+#     muted_alpha=0.2,
+#     legend_label = 'Total Messages',
+#     color = 'black'
+#     )
+
+# p.circle(
+#     x='Date',
+#     y='Message',
+#     source=total_messages_cds,
+#     alpha=0.45, 
+#     muted_alpha=0.2,
+#     legend_label = 'Total Messages',
+#     color = 'black'
+#     )
+
+# p.line(
+#     x='Date',
+#     y='Prediction',
+#     source=total_messages_cds,
+#     alpha=0.45, 
+#     muted_alpha=0.2,
+#     legend_label = 'Prediction',
+#     color = 'red'
+# )
 
 p.xaxis.axis_label = 'Time'
 p.yaxis.axis_label = 'Total Messages'
@@ -287,7 +346,13 @@ for i in reacts.index:
 
 reacts_source = ColumnDataSource(reacts)
 
-p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, 1], toolbar_location = None)
+react_tooltip = [
+    ("Name", "$name"),
+    ("React", "@Reacts"),
+    ("Percentage", "@$name{ 0.0%}")
+]
+
+p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = [0, 1], toolbar_location = None, tooltips = react_tooltip)
 p3.xaxis.major_label_text_font_size = "25pt"
 p3.toolbar.active_drag = None
 p3.toolbar.active_scroll = None
