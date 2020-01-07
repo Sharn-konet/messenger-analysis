@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import curve_fit
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
@@ -124,6 +124,8 @@ if alternative:
         messages_structured[i]['Reacts'] = [(react[1:], react[0]) for react in messages_structured[i]['Reacts']]
 
         messages_structured[i]['Date'] = datetime.strptime(messages_structured[i]['Date'], "%b %d, %Y, %H:%M %p")
+
+        # Should replace with resample to keep messages together and stuff.
         messages_structured[i]['Date'] = messages_structured[i]['Date'].replace(hour = 0, minute = 0)
 
         i += 1
@@ -158,11 +160,28 @@ date_slider = DateRangeSlider(end=end_date, start = start_date, value=(start_dat
 # mypalette = viridis(len(participants))
 mypalette=Category20[20][0:len(participants)]
 
+
 # Create figures to be included:
 p = figure(plot_width=800, plot_height=250, x_axis_type="datetime", toolbar_location = None)
 p.toolbar.logo = None
 p.x_range.start = start_date
 p.x_range.end = end_date
+p.toolbar.active_drag = None
+p.toolbar.active_scroll = None
+
+messages_tooltip = HoverTool(
+    tooltips = [
+        ('Name', '@Name'),
+        ('Message Count', '@Message'),
+        ('Date', '@Date') #{%D/%M/%Y}
+    ],
+    formatters = {
+        'Date': 'datetime'
+    }
+)
+
+p.add_tools(messages_tooltip)
+
 
 p2 = figure(plot_height = 80, plot_width = 800, x_axis_type='datetime', toolbar_location=None,
            x_range=(start_date, end_date))
@@ -170,6 +189,8 @@ p2.yaxis.major_label_text_color = None
 p2.yaxis.major_tick_line_color= None
 p2.yaxis.minor_tick_line_color= None
 p2.grid.grid_line_color=None
+p2.toolbar.active_drag = None
+p2.toolbar.active_scroll = None
 
 box = BoxAnnotation(fill_alpha=0.5, line_alpha=0.5, level='underlay', left=start_date, right=end_date)
 
@@ -323,7 +344,7 @@ date_slider.on_change('value', update_range)
 
 date_slider_layout = row(Spacer(width = 46, height = 50, sizing_mode = "fixed"), date_slider, sizing_mode = "scale_width")
 
-plots = column(p, p2, date_slider_layout, sizing_mode = "scale_width")
+plots = column(p, date_slider_layout, p2, sizing_mode = "scale_width")
 
 # Create the layout of the Bokeh application
 message_timeseries = layout([
