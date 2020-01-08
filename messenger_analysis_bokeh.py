@@ -20,6 +20,7 @@ import scrapy
 from datetime import datetime, timedelta, date
 import pandas as pd
 import numpy as np
+from math import pi
 from scipy.optimize import curve_fit
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool
@@ -30,6 +31,7 @@ from bokeh.io import curdoc
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
+from bokeh.transform import cumsum
 from copy import deepcopy
 
 #-------------------------------------------------------------------------
@@ -82,12 +84,9 @@ for message in boxes:
     i += 1
 
 message_df = pd.DataFrame(messages)
+
 participants = message_df.Name.unique()
 participants = list(participants)
-
-# Can remove Name column beforehand and then remove the drop = True statement, definitely faster
-# message_df = message_df.set_index('Date').groupby('Name').resample('W', convention='end').apply(lambda x: [*x]).drop(columns="Name").reset_index()
-# message_df.loc[:, 'Message_Count'] = message_df.loc[:, 'Message'].apply(len)
 
 reacts = list(message_df['Reacts'])
 reacts = [react[0] for react in reacts if len(react) > 0]
@@ -95,6 +94,10 @@ reacts = pd.DataFrame(data = reacts, columns = ['Name', 'Reacts'])
 reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
 reacts.name = 'Count'
 reacts = reacts.reset_index()
+
+# Can remove Name column beforehand and then remove the drop = True statement, definitely faster
+# message_df = message_df.set_index('Date').groupby('Name').resample('W', convention='end').apply(lambda x: [*x]).drop(columns="Name").reset_index()
+# message_df.loc[:, 'Message_Count'] = message_df.loc[:, 'Message'].apply(len)
 
 #data[data['reacts'].apply(len) == max(data['reacts'].apply(len))]
 ## - Code which selects all messages which got the maximum number of reacts.
@@ -129,7 +132,7 @@ messages_tooltip = HoverTool(
     tooltips = [
         ('Name', '@Name'),
         ('Message Count', '@Message'),
-        ('Date', '@Date{%A, %e %B %Y}') #
+        ('Date', '@Date{%A, %e %B %Y}')
     ],
     formatters = {
         'Date': 'datetime'
@@ -314,7 +317,15 @@ message_panel = Panel(child = message_timeseries, title = 'Message Data')
 #--------------------------------------------------------------------------+
 unique_reacts = reacts['Reacts'].unique()
 
+reacts_individual = reacts.groupby(["Name", "Reacts"]).sum().reset_index()
+
+for name in participants:
+    reacts_individual[reacts_individual['Name'] == name]['Angle'] = (reacts_individual[reacts_individual['Name'] == name].loc[:, 'Count']/(reacts_individual[reacts_individual['Name'] == name].loc[:,'Count'].sum()))*2*pi
+
+reacts_indiv_CDS = ColumnDataSource(reacts_individual)
+
 reacts = reacts.pivot(index = 'Reacts', columns = 'Name', values = 'Count').fillna(0)
+
 sums = reacts.sum(axis = 1)
 
 for i in reacts.index:
@@ -332,6 +343,17 @@ p3 = figure(plot_width=800, plot_height=250, x_range = unique_reacts, y_range = 
 p3.xaxis.major_label_text_font_size = "25pt"
 p3.toolbar.active_drag = None
 p3.toolbar.active_scroll = None
+
+p4 = figure(plot_width=400, plot_height=400, x_range = (-0.5, 1), toolbar_location = None, tools="hover", tooltips = "@React: @$name{ 0.0%}")
+
+for i in range(len(participants)):
+    view=CDSView(source=reacts_indiv_CDS, 
+    filters=[GroupFilter(column_name='Name', group=participants[i])])
+
+    p4.wedge(x=0, y=1, radius = 0.4, 
+             source = reacts_indiv_CDS, view = view,
+             start_angle = cumsum('Angle', include_zero = True), end_angle = cumsum('Angle'),
+             line_color="white", fill_color = mypalette[i], legend_label = participants[i])
 
 # configure so that Bokeh chooses what (if any) scroll tool is active
 
@@ -377,6 +399,7 @@ legend.location = 'center_right'
 legend.spacing = 18
 p3.add_layout(legend, 'above')
 
+
 reacts_panel = layout([
     [p3]
 ], sizing_mode="scale_width")
@@ -384,6 +407,8 @@ reacts_panel = layout([
 reacts_panel = Panel(child = reacts_panel, title = 'Reacts Data')
 
 tabs = Tabs(tabs = [message_panel, reacts_panel])
+
+
 
 show(tabs)
 
