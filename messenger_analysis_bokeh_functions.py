@@ -153,7 +153,6 @@ def parse_json_messages(directories):
                 message['Message'] = [file['uri'] for file in message.pop('files')]
                 message['Type'] = 'File'
             else:
-                print("god help us all")
                 message['Message'] = None
                 message['Type'] = None
 

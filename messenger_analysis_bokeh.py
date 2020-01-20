@@ -32,6 +32,7 @@ from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
 from bokeh.transform import cumsum
+from bokeh.core.properties import field
 from messenger_analysis_bokeh_functions import parse_html_messages, parse_json_messages
 
 # -------------------------------------------------------------------------
@@ -51,9 +52,9 @@ directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
 
 json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 
-#(message_df, reacts, title, participants) = parse_html_messages(directory)
+(message_df, reacts, title, participants) = parse_html_messages(directory)
 
-(message_df, reacts, title, participants) = parse_json_messages(json_directory)
+#(message_df, reacts, title, participants) = parse_json_messages(json_directory)
 
 # -------------------------------------------------------------------------
 # Plot Data:
@@ -158,20 +159,20 @@ def curve(x, a, b, c):
 x_data = total_messages.Date.array.asi8/ 1e18
 y_data = total_messages['Message'].values
 
-# popt, pcov = curve_fit(curve, x_data, y_data, maxfev = 9001)
+popt, pcov = curve_fit(curve, x_data, y_data, maxfev = 20000)
 
-# x_data_step = x_data[1] - x_data[0]
+x_data_step = x_data[1] - x_data[0]
 
-# x_data = list(x_data)
+x_data = list(x_data)
 
-# for _ in range(51):
-#     x_data.append(x_data[-1] + x_data_step)
+for _ in range(51):
+    x_data.append(x_data[-1] + x_data_step)
 
-# x_data = np.array(x_data)
+x_data = np.array(x_data)
 
-# y_prediction = curve(x_data, *popt)
+y_prediction = curve(x_data, *popt)
 
-# total_messages['Prediction'] = y_prediction[:len(total_messages)]
+total_messages['Prediction'] = y_prediction[:len(total_messages)]
 
 total_messages_cds = ColumnDataSource(data=total_messages)
 
@@ -195,15 +196,16 @@ p.circle(
     color = 'black'
     )
 
-# p.line(
-#     x='Date',
-#     y='Prediction',
-#     source=total_messages_cds,
-#     alpha=0.45,
-#     muted_alpha=0.2,
-#     legend_label = 'Prediction',
-#     color = 'red'
-# )
+p.line(
+    x='Date',
+    y='Prediction',
+    source=total_messages_cds,
+    alpha=0.45,
+    muted_alpha=0.2,
+    legend_label = 'Prediction',
+    line_dash = 'dashed',
+    color = 'red'
+)
 
 p.xaxis.axis_label = 'Time'
 p.yaxis.axis_label = 'Total Messages'
@@ -277,11 +279,13 @@ message_panel = Panel(child=message_timeseries, title='Message Data')
 # --------------------------------------------------------------------------+
 unique_reacts = reacts['Reacts'].unique()
 
+react_color = dict(zip(unique_reacts, Category20[20][0:len(unique_reacts)]))
+
 reacts_individual = reacts.groupby(["Name", "Reacts"]).sum().reset_index()
 
-for name in participants:
-    reacts_individual[reacts_individual['Name'] == name]['Angle'] = (
-        reacts_individual[reacts_individual['Name'] == name].loc[:, 'Count']/(reacts_individual[reacts_individual['Name'] == name].loc[:, 'Count'].sum()))*2*pi
+sums = {name: (reacts_individual[reacts_individual['Name'] == name].loc[:, 'Count'].sum()) for name in participants}
+
+reacts_individual = reacts_individual.apply(lambda x: pd.Series([*x, (x[2]/sums[x[0]])*2*pi, react_color[x[1]]], index = ['Name', 'Reacts', 'Count', 'Angle', 'Color']), axis = 1)
 
 reacts_indiv_CDS = ColumnDataSource(reacts_individual)
 
@@ -316,34 +320,14 @@ for i in range(len(participants)):
     p4.wedge(x=0, y=1, radius=0.4,
              source=reacts_indiv_CDS, view=view,
              start_angle=cumsum('Angle', include_zero=True), end_angle=cumsum('Angle'),
-             line_color="white", fill_color=mypalette[i], legend_label=participants[i])
+             line_color="white", fill_color='Color', legend_field= 'Reacts')
+
+p4.xgrid.grid_line_color = None
+p4.ygrid.grid_line_color = None
+p4.toolbar.active_drag = None
+p4.toolbar.active_scroll = None
 
 # configure so that Bokeh chooses what (if any) scroll tool is active
-
-# p3.segment(0, "React", "Count", "React", line_width=2, line_color="green", source = reacts_source, )
-# p3.circle("Count", "React", size=15, fill_color="orange", line_color="green", line_width=3, source = reacts_source)
-
-# for i in range(len(participants)):
-#     view=CDSView(source=reacts_source,
-#     filters=[GroupFilter(column_name='Names', group=participants[i])])
-#     p3.segment(
-#         x0 = "React",
-#         y0 = 0,
-#         x1 = "React",
-#         y1 = "Count",
-#         source = reacts_source,
-#         view = view,
-#         legend_label = participants[i],
-#         color = mypalette[i]
-#     )
-
-#     p3.circle(
-#         x = 'Reacts',
-#         y = 'Count',
-#         source = reacts_source,
-#         view = view,
-#         color = mypalette[i]
-#     )
 
 p3.vbar_stack(
     participants,
@@ -364,7 +348,7 @@ p3.add_layout(legend, 'above')
 
 
 reacts_panel = layout([
-    [p3]
+    [p4, p3]
 ], sizing_mode="scale_width")
 
 reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
