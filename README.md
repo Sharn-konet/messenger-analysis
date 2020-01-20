@@ -9,7 +9,7 @@ To this end, my goals in developing this are:
 * To make the application robust, such that it can be used easily by a variety of users
 
 ## Setup:
-Currently, to run this project, you need to include a Facebook Data query in the local directory. The only supported format is HTML.
+Currently, to run this project, you need to include a Facebook Data query in the local directory. The script supports both HTML and JSON files.
 
 The following command should then be run in the terminal:
 
