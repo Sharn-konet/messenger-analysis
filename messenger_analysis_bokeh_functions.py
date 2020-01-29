@@ -162,7 +162,7 @@ def parse_json_messages(directories):
         message['Date'] = message['Date'].replace(hour=0, minute=0, second = 0, microsecond = 0)
 
         if 'reactions' in message:
-            message['Reacts'] = [(react['actor'], react['reaction']) for react in message['reactions']]
+            message['Reacts'] = [(react['actor'], react['reaction'].encode('latin-1').decode('utf-8')) for react in message['reactions']]
         else:
             message['Reacts'] = []
 

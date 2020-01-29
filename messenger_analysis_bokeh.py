@@ -52,9 +52,9 @@ directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
 
 json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 
-(message_df, reacts, title, participants) = parse_html_messages(directory)
+#(message_df, reacts, title, participants) = parse_html_messages(directory)
 
-#(message_df, reacts, title, participants) = parse_json_messages(json_directory)
+(message_df, reacts, title, participants) = parse_json_messages(json_directory)
 
 # -------------------------------------------------------------------------
 # Plot Data:
@@ -304,14 +304,14 @@ react_tooltip = [
     ("Percentage", "@$name{ 0.0%}")
 ]
 
-p3 = figure(plot_width=800, plot_height=250, x_range=unique_reacts,
-            y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip)
+p3 = figure(plot_width=800, plot_height=150, x_range=unique_reacts,
+            y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
 p3.xaxis.major_label_text_font_size = "25pt"
 p3.toolbar.active_drag = None
 p3.toolbar.active_scroll = None
 
 p4 = figure(plot_width=400, plot_height=400, x_range=(-0.5, 1),
-            toolbar_location=None, tools="hover", tooltips="@React: @$name{ 0.0%}")
+            toolbar_location=None, tools="hover", tooltips="@React: @$name{ 0.0%}", sizing_mode = "fixed")
 
 for i in range(len(participants)):
     view = CDSView(source=reacts_indiv_CDS,
@@ -326,6 +326,9 @@ p4.xgrid.grid_line_color = None
 p4.ygrid.grid_line_color = None
 p4.toolbar.active_drag = None
 p4.toolbar.active_scroll = None
+p4.axis.axis_label=None
+p4.axis.visible=False
+p4.grid.grid_line_color = None
 
 # configure so that Bokeh chooses what (if any) scroll tool is active
 
@@ -349,7 +352,7 @@ p3.add_layout(legend, 'above')
 
 reacts_panel = layout([
     [p4, p3]
-], sizing_mode="scale_width")
+], sizing_mode="scale_both")
 
 reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
 
