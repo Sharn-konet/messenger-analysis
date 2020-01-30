@@ -32,6 +32,7 @@ from bokeh.layouts import column, layout, row, Spacer
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
 from bokeh.transform import cumsum
+from bokeh.models.widgets import Dropdown
 from bokeh.core.properties import field
 from messenger_analysis_bokeh_functions import parse_html_messages, parse_json_messages
 
@@ -304,31 +305,40 @@ react_tooltip = [
     ("Percentage", "@$name{ 0.0%}")
 ]
 
-p3 = figure(plot_width=800, plot_height=150, x_range=unique_reacts,
+p3 = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
             y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
 p3.xaxis.major_label_text_font_size = "25pt"
 p3.toolbar.active_drag = None
 p3.toolbar.active_scroll = None
 
-p4 = figure(plot_width=400, plot_height=400, x_range=(-0.5, 1),
+p4 = figure(plot_width=423, plot_height=423, x_range=(-0.5, 1),
             toolbar_location=None, tools="hover", tooltips="@React: @$name{ 0.0%}", sizing_mode = "fixed")
+
+react_menu = [*zip(participants, participants)]
+
+pie_chart_selection = Dropdown(label="Target Participant", button_type="primary", menu=react_menu, sizing_mode = "stretch_both")
 
 for i in range(len(participants)):
     view = CDSView(source=reacts_indiv_CDS,
                    filters=[GroupFilter(column_name='Name', group=participants[i])])
 
-    p4.wedge(x=0, y=1, radius=0.4,
+    p4.wedge(x=0.1, y=1, radius=0.5,
              source=reacts_indiv_CDS, view=view,
              start_angle=cumsum('Angle', include_zero=True), end_angle=cumsum('Angle'),
              line_color="white", fill_color='Color', legend_field= 'Reacts')
+
+react_page_spacer = Spacer(height = 200, height_policy = "fit", margin = (50,50,50,50))
 
 p4.xgrid.grid_line_color = None
 p4.ygrid.grid_line_color = None
 p4.toolbar.active_drag = None
 p4.toolbar.active_scroll = None
-p4.axis.axis_label=None
-p4.axis.visible=False
+p4.axis.axis_label = None
+p4.axis.visible = False
 p4.grid.grid_line_color = None
+
+p4.legend.label_text_font_size = '15pt'
+p4.legend.spacing = 19
 
 # configure so that Bokeh chooses what (if any) scroll tool is active
 
@@ -346,12 +356,15 @@ p3.yaxis.formatter = NumeralTickFormatter(format="0%")
 legend = p3.legend[0]
 legend.orientation = 'horizontal'
 legend.location = 'center_right'
-legend.spacing = 18
+legend.spacing = 7
 p3.add_layout(legend, 'above')
+p3.legend.label_text_font_size = "8pt"
 
+react_indiv_column = column(p4, pie_chart_selection, sizing_mode = "fixed")
 
 reacts_panel = layout([
-    [p4, p3]
+    [p3, react_indiv_column],
+    [react_page_spacer]
 ], sizing_mode="scale_both")
 
 reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
