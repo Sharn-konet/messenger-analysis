@@ -24,6 +24,7 @@ from math import pi
 from scipy.optimize import curve_fit
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool
+from bokeh.models.annotations import Title
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
@@ -34,6 +35,7 @@ from bokeh.models.formatters import NumeralTickFormatter
 from bokeh.transform import cumsum
 from bokeh.models.widgets import Dropdown
 from bokeh.core.properties import field
+from copy import deepcopy
 from messenger_analysis_bokeh_functions import parse_html_messages, parse_json_messages
 
 # -------------------------------------------------------------------------
@@ -160,7 +162,7 @@ def curve(x, a, b, c):
 x_data = total_messages.Date.array.asi8/ 1e18
 y_data = total_messages['Message'].values
 
-popt, pcov = curve_fit(curve, x_data, y_data, maxfev = 20000)
+popt, pcov = curve_fit(curve, x_data, y_data, maxfev = 100000)
 
 x_data_step = x_data[1] - x_data[0]
 
@@ -312,11 +314,22 @@ p3.toolbar.active_drag = None
 p3.toolbar.active_scroll = None
 
 p4 = figure(plot_width=423, plot_height=423, x_range=(-0.5, 1),
-            toolbar_location=None, tools="hover", tooltips="@React: @$name{ 0.0%}", sizing_mode = "fixed")
+            toolbar_location=None, tools="hover", tooltips="@Reacts: @Count", sizing_mode = "fixed")
 
 react_menu = [*zip(participants, participants)]
 
 pie_chart_selection = Dropdown(label="Target Participant", button_type="primary", menu=react_menu, sizing_mode = "stretch_both")
+
+def update_pie_chart(attr, old, new):
+    df = deepcopy(reacts_individual)
+    df = df[df['Name'] == new]
+    reacts_indiv_CDS.data = df
+    p4.title.text = "Distribution of Reactions for " + str(new)
+    print(df)
+    print(new)
+    print(old)
+
+pie_chart_selection.on_change("value", update_pie_chart)
 
 for i in range(len(participants)):
     view = CDSView(source=reacts_indiv_CDS,
@@ -328,6 +341,8 @@ for i in range(len(participants)):
              line_color="white", fill_color='Color', legend_field= 'Reacts')
 
 react_page_spacer = Spacer(height = 200, height_policy = "fit", margin = (50,50,50,50))
+
+update_pie_chart('value', participants[0], participants[0])
 
 p4.xgrid.grid_line_color = None
 p4.ygrid.grid_line_color = None
