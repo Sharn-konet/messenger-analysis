@@ -205,7 +205,7 @@ p.line(
     source=total_messages_cds,
     alpha=0.45,
     muted_alpha=0.2,
-    legend_label = 'Prediction',
+    legend_label = 'Trend',
     line_dash = 'dashed',
     color = 'red'
 )
@@ -215,6 +215,8 @@ p.yaxis.axis_label = 'Total Messages'
 p.title.text = title
 p.legend.location = "top_right"
 p.legend.click_policy = "mute"
+p.legend.orientation = 'horizontal'
+p.legend.spacing = 7
 
 p2.add_layout(box)
 
@@ -316,6 +318,11 @@ p3.toolbar.active_scroll = None
 p4 = figure(plot_width=423, plot_height=423, x_range=(-0.5, 1),
             toolbar_location=None, tools="hover", tooltips="@Reacts: @Count", sizing_mode = "fixed")
 
+p4.title.align = 'center'
+p4.title.border_line_dash = 'solid'
+p4.title.text_font_size['value'] = '15pt'
+p4.title.offset = 5
+
 react_menu = [*zip(participants, participants)]
 
 pie_chart_selection = Dropdown(label="Target Participant", button_type="primary", menu=react_menu, sizing_mode = "stretch_both")
@@ -381,6 +388,8 @@ reacts_panel = layout([
     [p3, react_indiv_column],
     [react_page_spacer]
 ], sizing_mode="scale_both")
+
+reacts_panel.margin = (1, 1, 1, 1)
 
 reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
 
