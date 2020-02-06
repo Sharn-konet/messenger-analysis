@@ -46,14 +46,14 @@ json_directories = {name: [directory for directory in json_directories if name i
 
 directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
 
-json_directory = json_directories['HelenChambers_iBdYJMhaNw']
+json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 
 #(message_df, reacts, title, participants) = parse_html_messages(directory)
 
 (message_df, reacts, title, participants) = parse_json_messages(json_directory)
 
 # -------------------------------------------------------------------------
-# Plot Data:
+# Plot Message Timeseries:
 # -------------------------------------------------------------------------
 
 # Create a color palette to use in plotting:
@@ -63,10 +63,14 @@ colour_palette = Category20[20][0:len(participants)]
 message_panel = create_message_timeseries_panel(message_df, title, participants, colour_palette)
 
 # --------------------------------------------------------------------------+
-# Plotting reactions
+# Plot Reaction Panel:
 # --------------------------------------------------------------------------+
 
 reacts_panel = create_react_breakdown_panel(reacts, title, participants, colour_palette)
+
+# --------------------------------------------------------------------------+
+# Compile Bokeh Application:
+# --------------------------------------------------------------------------+
 
 tabs = Tabs(tabs=[message_panel, reacts_panel])
 

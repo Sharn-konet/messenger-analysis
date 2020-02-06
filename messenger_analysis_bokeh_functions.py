@@ -155,31 +155,35 @@ def parse_json_messages(directories):
 
     def rename_message_keys(message):
         
-        try:
-            message['Message'] = message.pop('content')
-            message['Type'] = 'Message'
-        except KeyError:
-            if 'videos' in message:
-                message['Message'] = [video['uri'] for video in message.pop('videos')]
-                message['Type'] = 'Video'
-            elif 'photos' in message:
-                message['Message'] = [photo['uri'] for photo in message.pop('photos')]
-                message['Type'] = 'Photo'
-            elif 'gifs' in message:
-                message['Message'] = [gif['uri'] for gif in message.pop('gifs')]
-                message['Type'] = 'Gif'
-            elif 'audio_files' in message:
-                message['Message'] = [audio_file['uri'] for audio_file in message.pop('audio_files')]
-                message['Type'] = 'Audio File'
-            elif 'sticker' in message:
-                message['Message'] = message.pop('sticker')['uri']
-                message['Type'] = 'Sticker'
-            elif 'files' in message:
-                message['Message'] = [file['uri'] for file in message.pop('files')]
-                message['Type'] = 'File'
+        message_info = {*message.keys()} - {'sender_name', 'timestamp_ms', 'type', 'reactions', 'share', 'content', 'users'}
+
+        message['Details'] = None
+
+        # Doesn't make sense to use a for/else statement here. Usually only one type/ no support for multiple
+        for key in message_info:
+            value = message.pop(key)
+            message['Message'] = [data['uri'] if type(value) is list else str([*value.values()][0]) for data in value]
+            message['Type'] = key.capitalize()
+            break
+
+        else:
+            if 'users' in message.keys():
+                name = None
+                content = message.pop('content')
+                ## NEEDS SUPPORT FOR REMOVING MEMBERS FROM THE GROUP (couldn't find example)
+                if message['type'] == 'Subscribe':
+                    name = content.split('added')[1]
+                    name = name.strip()[:-14]
+                message['Message'] = content
+                message['Type'] = message['type']
+                message['Details'] = name
             else:
-                message['Message'] = None
-                message['Type'] = None
+                try:
+                    message['Message'] = message.pop('content').encode('latin-1').decode('utf-8')
+                    message['Type'] = 'Message'
+                except KeyError:
+                    message['Message'] = None
+                    message['Type'] = 'Removed Message'
 
         message['Name'] = message.pop('sender_name')
 
@@ -208,6 +212,11 @@ def parse_json_messages(directories):
     message_data = [*map(rename_message_keys, message_data)]
 
     message_df = pd.DataFrame(message_data)
+
+    del message_df['reactions']
+    del message_df['share']
+    del message_df['users']
+    del message_df['content']
 
     reacts_list = [*message_df['Reacts']]
     reacts = [react for reacts in reacts_list for react in reacts if len(reacts) > 0]
@@ -289,7 +298,7 @@ def create_message_timeseries_panel(message_df, title, participants, colour_pale
             source=total_messages_cds,
             alpha=0.45,
             muted_alpha=0.2,
-            legend_label = 'Weekly Total',
+            legend_label = 'Weekly Average',
             color = 'black'
             )
 
