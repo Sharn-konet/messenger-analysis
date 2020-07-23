@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, date
 import pandas as pd
 import numpy as np
 from bokeh.plotting import show
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool, AutocompleteInput
 from bokeh.models.annotations import Title
 from bokeh.palettes import Spectral11, Category20, viridis
 from bokeh.models.glyphs import MultiLine
@@ -30,6 +30,7 @@ from bokeh.layouts import column, layout, row, Spacer
 from bokeh.core.properties import field
 from messenger_analysis_bokeh_functions import parse_html_title, parse_html_messages, parse_json_messages
 from messenger_analysis_bokeh_functions import create_message_timeseries_panel, create_react_breakdown_panel, create_individual_statistics_panel
+from messenger_analysis_meta_functions import get_chat_titles, update_data
 
 # -------------------------------------------------------------------------
 # Parsing Messenger Files:
@@ -44,10 +45,13 @@ json_directories = glob("**/messages/inbox/*/*.json", recursive = True)
 unique_chatnames = {*map(lambda dir: dir.split("\\")[-2], json_directories)}
 json_directories = {name: [directory for directory in json_directories if name in directory] for name in unique_chatnames}
 #html_names = {name: parse_html_title(directory) for name, directory in html_directories.items()}
+chat_titles = {get_chat_titles(json_directories, key): key for key in json_directories}
 
 directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
 
-json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
+json_directory = json_directories['MaxPitto_V4hEVp1UCQ']
+
+#'MaxPitto_V4hEVp1UCQ'
 
 #(message_df, reacts, title, participants) = parse_html_messages(directory)
 
@@ -81,6 +85,11 @@ individual_statistics_panel = create_individual_statistics_panel(message_df, tit
 
 tabs = Tabs(tabs=[message_panel, reacts_panel, individual_statistics_panel])
 
-show(tabs)
+directory_search = AutocompleteInput(completions = list(chat_titles.keys()), width = 400, height = 30, sizing_mode = "fixed")
+directory_search.on_change("value", update_data)
 
-curdoc().add_root(tabs)
+page = column(directory_search, tabs, sizing_mode = "scale_both")
+
+#show(page)
+
+curdoc().add_root(page)

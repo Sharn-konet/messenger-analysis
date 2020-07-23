@@ -10,7 +10,7 @@ from bokeh.palettes import Category20
 from bokeh.models.widgets import Dropdown
 from scipy.optimize import curve_fit
 from bokeh.events import MenuItemClick
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool, Select
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool, Select, DateFormatter, TableColumn
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
@@ -161,31 +161,36 @@ def parse_json_messages(directories):
 
         message['Details'] = None
 
-        # Doesn't make sense to use a for/else statement here. Usually only one type/ no support for multiple
-        for key in message_info:
-            value = message.pop(key)
-            message['Message'] = [data['uri'] if type(value) is list else str([*value.values()][0]) for data in value]
-            message['Type'] = key.capitalize()
-            break
-
+        # Doesn't make sense to use a for/else statement here. Usually only one type / no support for multiple
+        if message['type'] == 'Call':
+            message['Details'] = message['call_duration']
+            message['Type'] = 'Call'
+        
         else:
-            if 'users' in message.keys():
-                name = None
-                content = message.pop('content')
-                ## NEEDS SUPPORT FOR REMOVING MEMBERS FROM THE GROUP (couldn't find example)
-                if message['type'] == 'Subscribe':
-                    name = content.split('added')[1]
-                    name = name.strip()[:-14]
-                message['Message'] = content
-                message['Type'] = message['type']
-                message['Details'] = name
+            for key in message_info:
+                value = message.pop(key)
+                message['Message'] = [data['uri'] if type(value) is list else str([*value.values()][0]) for data in value]
+                message['Type'] = key.capitalize()
+                break
+
             else:
-                try:
-                    message['Message'] = message.pop('content').encode('latin-1').decode('utf-8')
-                    message['Type'] = 'Message'
-                except KeyError:
-                    message['Message'] = None
-                    message['Type'] = 'Removed Message'
+                if 'users' in message.keys():
+                    name = None
+                    content = message.pop('content')
+                    ## NEEDS SUPPORT FOR REMOVING MEMBERS FROM THE GROUP (couldn't find example)
+                    if message['type'] == 'Subscribe':
+                        name = content.split('added')[1]
+                        name = name.strip()[:-14]
+                    message['Message'] = content
+                    message['Type'] = message['type']
+                    message['Details'] = name
+                else:
+                    try:
+                        message['Message'] = message.pop('content').encode('latin-1').decode('utf-8')
+                        message['Type'] = 'Message'
+                    except KeyError:
+                        message['Message'] = None
+                        message['Type'] = 'Removed Message'
 
         message['Name'] = message.pop('sender_name')
 
@@ -214,11 +219,15 @@ def parse_json_messages(directories):
     message_data = [*map(rename_message_keys, message_data)]
 
     message_df = pd.DataFrame(message_data)
+    
+    if 'missed' in message_df.keys():
+        message_df.loc[pd.notna(message_df['missed']), 'Type'] = 'Missed Call'
 
-    del message_df['reactions']
-    del message_df['share']
-    del message_df['users']
-    del message_df['content']
+    keys_to_remove = set(message_df.columns) - {'Details', 'Message', 'Type', 'Name', 'Date', 'Reacts'}
+
+    for key in keys_to_remove:
+        del message_df[key]
+
 
     reacts_list = [*message_df['Reacts']]
     reacts = [react for reacts in reacts_list for react in reacts if len(reacts) > 0]
@@ -589,10 +598,20 @@ def create_individual_statistics_panel(message_df, title, participants, colour_p
     type_bar_graph.xgrid.grid_line_color = None
     type_bar_graph.y_range.start = 0
 
+    # Create DataTable Widget:
+
+    columns = [
+        TableColumn(field = "Message", title = "Message"),
+        TableColumn(field = "Name", title = "Name"),
+        TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"))
+    ]
+
+    data_table = DataTable(source = ColumnDataSource(message_df[message_df['Type']=='Message']), columns = columns, fit_columns = True, width = 700, height = 350)
+
     indiv_statistics_panel = layout([
-        type_bar_graph
+        data_table
     ], sizing_mode = "scale_both")
 
-    indiv_statistics_panel = Panel(child=indiv_statistics_panel, title='Reacts Data')
+    indiv_statistics_panel = Panel(child=indiv_statistics_panel, title='Message Log')
 
     return indiv_statistics_panel
