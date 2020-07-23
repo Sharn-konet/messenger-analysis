@@ -350,7 +350,7 @@ def create_message_timeseries_panel(message_df, title, participants, colour_pale
             ('Date', '@Date{%A, %e %B %Y}')
         ],
         formatters={
-            'Date': 'datetime'
+            '@Date': "datetime"
         }
     )
 
