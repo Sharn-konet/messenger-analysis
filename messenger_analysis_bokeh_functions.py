@@ -9,10 +9,12 @@ from copy import deepcopy
 from bokeh.palettes import Category20
 from bokeh.models.widgets import Dropdown
 from scipy.optimize import curve_fit
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool
+from bokeh.events import MenuItemClick
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool, Select
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
+from bokeh.models.widgets.tables import DataTable
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.plotting import figure, show
 from bokeh.transform import cumsum
@@ -399,7 +401,8 @@ def create_message_timeseries_panel(message_df, title, participants, colour_pale
             color=colour_palette[index]
         )
 
-    plot_summary_data(messages)
+    if len(participants) > 2:
+        plot_summary_data(messages)
 
     main_figure.xaxis.axis_label = 'Time'
     main_figure.yaxis.axis_label = 'Total Messages'
@@ -528,12 +531,10 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     piechart_figure.title.align = 'center'
     piechart_figure.title.border_line_dash = 'solid'
-    piechart_figure.title.text_font_size['value'] = '15pt'
+    piechart_figure.title.text_font_size = '15px'
     piechart_figure.title.offset = 5
 
-    react_dropdown_menu = [*zip(participants, participants)]
-
-    pie_chart_selection = Dropdown(label="Target Participant", button_type="primary", menu=react_dropdown_menu, sizing_mode = "stretch_both")
+    pie_chart_selection = Select(value = participants[0], title = "Target Participant", options = participants, sizing_mode = "stretch_both")
 
     pie_chart_selection.on_change("value", update_pie_chart)
 
@@ -573,3 +574,25 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
 
     return reacts_panel
+
+def create_individual_statistics_panel(message_df, title, participants, colour_palette):
+
+    type_counts = message_df.groupby(['Name', 'Type']).count().reset_index()
+
+    type_counts = ColumnDataSource(type_counts)
+
+    type_bar_graph = figure(x_range= [*message_df['Type'].unique()] , plot_height=350, title="Distribution of Types",
+           toolbar_location=None, tools="")
+
+    type_bar_graph.vbar(source = type_counts, x='Type', top='Message', width=0.9)
+
+    type_bar_graph.xgrid.grid_line_color = None
+    type_bar_graph.y_range.start = 0
+
+    indiv_statistics_panel = layout([
+        type_bar_graph
+    ], sizing_mode = "scale_both")
+
+    indiv_statistics_panel = Panel(child=indiv_statistics_panel, title='Reacts Data')
+
+    return indiv_statistics_panel

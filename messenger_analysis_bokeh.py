@@ -28,7 +28,8 @@ from bokeh.models.glyphs import MultiLine
 from bokeh.io import curdoc
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.core.properties import field
-from messenger_analysis_bokeh_functions import parse_html_title, parse_html_messages, parse_json_messages, create_message_timeseries_panel, create_react_breakdown_panel
+from messenger_analysis_bokeh_functions import parse_html_title, parse_html_messages, parse_json_messages
+from messenger_analysis_bokeh_functions import create_message_timeseries_panel, create_react_breakdown_panel, create_individual_statistics_panel
 
 # -------------------------------------------------------------------------
 # Parsing Messenger Files:
@@ -69,10 +70,16 @@ message_panel = create_message_timeseries_panel(message_df, title, participants,
 reacts_panel = create_react_breakdown_panel(reacts, title, participants, colour_palette)
 
 # --------------------------------------------------------------------------+
+# Create Panel to Summarise Individual Statistics:
+# --------------------------------------------------------------------------+
+
+individual_statistics_panel = create_individual_statistics_panel(message_df, title, participants, colour_palette)
+
+# --------------------------------------------------------------------------+
 # Compile Bokeh Application:
 # --------------------------------------------------------------------------+
 
-tabs = Tabs(tabs=[message_panel, reacts_panel])
+tabs = Tabs(tabs=[message_panel, reacts_panel, individual_statistics_panel])
 
 show(tabs)
 
