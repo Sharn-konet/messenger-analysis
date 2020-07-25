@@ -1,245 +1,30 @@
-from multiprocessing import Pool
-import scrapy
-import json
-import itertools
+# +==================================================+
+# |           messenger_analysis_panels.py           |
+# +==================================================+
+# Author: Sharn-konet Reitsma
+
+# Description:
+# A collection of functions which return the various 
+# panels displayed in the Bokeh application. 
+
+
 import pandas as pd
 import numpy as np
 from math import pi
 from copy import deepcopy
 from bokeh.palettes import Category20
-from bokeh.models.widgets import Dropdown
 from scipy.optimize import curve_fit
-from bokeh.events import MenuItemClick
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, Tabs, HoverTool, Select, DateFormatter, TableColumn
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, HoverTool, Select, DateFormatter, TableColumn
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
 from bokeh.models.widgets.tables import DataTable
 from bokeh.layouts import column, layout, row, Spacer
-from bokeh.plotting import figure, show
+from bokeh.plotting import figure
 from bokeh.transform import cumsum
 from datetime import datetime
 
-def parse_html_title(directory):
-    with open(directory, 'rb') as data:
-        text = data.read()
-
-    data = scrapy.Selector(text=text, type='html')
-
-    title = data.xpath('//title/text()').extract()
-    if len(title) == 0:
-        return None
-    else:
-        return title[0]
-
-def parse_html_messages(directory):
-    """ Parses an HTML file for messenger data.
-
-        Parameters:
-        -----------
-        directory - string
-            The file path of a particular html file to parse.
-
-        Returns:
-        -----------
-        message_df - pandas Dataframe
-            A dataframe where each row makes up a particular message.
-        
-        participants - list
-            A list of all names included in the chat history as strings.
-
-        reacts - pandas Dataframe
-            A dataframe where each row makes up a reaction.
-    """
-
-    def extract_message_info(message):
-        """ Calls a XPath commands to extract relevant data from the message
-
-            Parameters:
-            -----------
-            message - scrapy Selector
-                A box selected by through scrapy containing all relevant message fields.
-
-            Returns:
-            -----------
-            message_dict - dictionary
-                Dictionary containing the extracted fields.
-        """
-        message_dict = {'Message': message.xpath('.//div[@class="' + attributes['message'] + '"]/div/div[2]//text()|.//audio/@src|.//a/@href').extract(),
-            'Date': message.xpath('.//div[@class="' + attributes['dates'] + '"]/text()').extract()[0],
-            'Reacts': message.xpath('.//ul[@class="' + attributes['reacts'] + '"]/li/text()').extract(),
-            'Name': message.xpath('.//div[@class="' + attributes['names'] + '"]/text()').extract()[0]}
-
-        message_dict['Reacts'] = [(react[1:], react[0])
-                                for react in message_dict['Reacts']]
-
-        message_dict['Date'] = datetime.strptime(
-            message_dict['Date'], "%b %d, %Y, %H:%M %p")
-
-        # Should replace with resample to keep messages together and stuff.
-        # - Might not work as there are multiple of the same date, so dates dont work as good index
-        message_dict['Date'] = message_dict['Date'].replace(hour=0, minute=0)
-
-        return message_dict
-
-    attributes = {
-    "names": "_3-96 _2pio _2lek _2lel",
-    "dates": "_3-94 _2lem",
-    "message": "_3-96 _2let",
-    "images": "_2yuc _3-96",
-    "reacts": "_tqp",
-    "participants": "_2lek",
-    "group_name": "_3b0d",
-    "plan_name": "_12gz"
-    }
-
-    with open(directory, 'rb') as data:
-        text = data.read()
-
-    data = scrapy.Selector(text=text, type='html')
-
-    title = data.xpath('//title/text()').extract()[0]
-
-    messages = data.xpath('//div[@class="pam _3-95 _2pi0 _2lej uiBoxWhite noborder"]')[1:]
-
-    messages = [*map(extract_message_info, messages)]
-
-    message_df = pd.DataFrame(messages)
-
-    participants = [*message_df.Name.unique()]
-
-    reacts_list = [*message_df['Reacts']]
-    reacts = [react for reacts in reacts_list for react in reacts if len(reacts) > 0]
-
-    reacts = pd.DataFrame(data=reacts, columns=['Name', 'Reacts'])
-    reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
-    reacts.name = 'Count'
-    reacts = reacts.reset_index()
-
-    # Can remove Name column beforehand and then remove the drop = True statement, definitely faster
-    # message_df = message_df.set_index('Date').groupby('Name').resample('W', convention='end').apply(lambda x: [*x]).drop(columns="Name").reset_index()
-    # message_df.loc[:, 'Message_Count'] = message_df.loc[:, 'Message'].apply(len)
-
-    #data[data['reacts'].apply(len) == max(data['reacts'].apply(len))]
-    # - Code which selects all messages which got the maximum number of reacts.
-    # Can add an additional ['reacts'] to then see what the reacts are
-
-    return (message_df, reacts, title, participants)
-
-def parse_json_messages(directories):
-    """ Parses an HTML file for messenger data.
-
-        Parameters:
-        -----------
-        directories - list
-            A list of directories to concatenate together into one dataset
-
-        Returns:
-        -----------
-        message_df - pandas Dataframe
-            A dataframe where each row makes up a particular message.
-        
-        reacts - pandas Dataframe
-            A dataframe where each row makes up a reaction.
-
-        title - string
-            The name of the chat. (Mostly for group chats)
-        
-        participants - list
-            A list of all names included in the chat history as strings.
-    """
-
-    def load_json(directory):
-        with open(directory.replace("\\", "/"), encoding = 'utf-8') as dataFile:
-            message_data = json.load(dataFile)
-        
-        return message_data
-
-    def rename_message_keys(message):
-        
-        message_info = {*message.keys()} - {'sender_name', 'timestamp_ms', 'type', 'reactions', 'share', 'content', 'users'}
-
-        message['Details'] = None
-
-        # Doesn't make sense to use a for/else statement here. Usually only one type / no support for multiple
-        if message['type'] == 'Call':
-            message['Details'] = message['call_duration']
-            message['Type'] = 'Call'
-        
-        else:
-            for key in message_info:
-                value = message.pop(key)
-                message['Message'] = [data['uri'] if type(value) is list else str([*value.values()][0]) for data in value]
-                message['Type'] = key.capitalize()
-                break
-
-            else:
-                if 'users' in message.keys():
-                    name = None
-                    content = message.pop('content')
-                    ## NEEDS SUPPORT FOR REMOVING MEMBERS FROM THE GROUP (couldn't find example)
-                    if message['type'] == 'Subscribe':
-                        name = content.split('added')[1]
-                        name = name.strip()[:-14]
-                    message['Message'] = content
-                    message['Type'] = message['type']
-                    message['Details'] = name
-                else:
-                    try:
-                        message['Message'] = message.pop('content').encode('latin-1').decode('utf-8')
-                        message['Type'] = 'Message'
-                    except KeyError:
-                        message['Message'] = None
-                        message['Type'] = 'Removed Message'
-
-        message['Name'] = message.pop('sender_name')
-
-        message['Date'] = datetime.fromtimestamp(message.pop('timestamp_ms')/1000)
-        message['Date'] = message['Date'].replace(hour=0, minute=0, second = 0, microsecond = 0)
-
-        if 'reactions' in message:
-            message['Reacts'] = [(react['actor'], react['reaction'].encode('latin-1').decode('utf-8')) for react in message['reactions']]
-        else:
-            message['Reacts'] = []
-
-        del message['type']
-
-        return message
-
-    message_data = [*map(load_json, directories)]
-
-    title = message_data[0]['title']
-
-    participants = [*map(lambda name: name['name'], message_data[0]['participants'])]
-
-    message_data = [data['messages'] for data in message_data]
-
-    message_data = [*itertools.chain(*message_data)]
-
-    message_data = [*map(rename_message_keys, message_data)]
-
-    message_df = pd.DataFrame(message_data)
-    
-    if 'missed' in message_df.keys():
-        message_df.loc[pd.notna(message_df['missed']), 'Type'] = 'Missed Call'
-
-    keys_to_remove = set(message_df.columns) - {'Details', 'Message', 'Type', 'Name', 'Date', 'Reacts'}
-
-    for key in keys_to_remove:
-        del message_df[key]
-
-
-    reacts_list = [*message_df['Reacts']]
-    reacts = [react for reacts in reacts_list for react in reacts if len(reacts) > 0]
-
-    reacts = pd.DataFrame(data=reacts, columns=['Name', 'Reacts'])
-    reacts = reacts.groupby(["Reacts", "Name"])["Reacts"].count()
-    reacts.name = 'Count'
-    reacts = reacts.reset_index()
-
-    return (message_df, reacts, title, participants)
-
-def create_message_timeseries_panel(message_df, title, participants, colour_palette):
+def message_timeseries_panel(message_df, title, participants, colour_palette):
     """ Creates a plot of messages to a chat over time
 
         Parameters:
@@ -470,7 +255,7 @@ def create_message_timeseries_panel(message_df, title, participants, colour_pale
     return message_panel
 
 
-def create_react_breakdown_panel(reacts, title, participants, colour_palette):
+def react_breakdown_panel(reacts, title, participants, colour_palette):
 
     def update_pie_chart(attr, old, new):
         df = deepcopy(reacts_individual)
@@ -584,7 +369,7 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     return reacts_panel
 
-def create_individual_statistics_panel(message_df, title, participants, colour_palette):
+def individual_statistics_panel(message_df, title, participants, colour_palette):
 
     type_counts = message_df.groupby(['Name', 'Type']).count().reset_index()
 
@@ -602,8 +387,8 @@ def create_individual_statistics_panel(message_df, title, participants, colour_p
 
     columns = [
         TableColumn(field = "Message", title = "Message"),
-        TableColumn(field = "Name", title = "Name"),
-        TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"))
+        TableColumn(field = "Name", title = "Name", width = 10),
+        TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"), width = 10)
     ]
 
     data_table = DataTable(source = ColumnDataSource(message_df[message_df['Type']=='Message']), columns = columns, fit_columns = True, width = 700, height = 350)
