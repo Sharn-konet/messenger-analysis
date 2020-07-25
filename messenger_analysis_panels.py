@@ -24,7 +24,7 @@ from bokeh.plotting import figure
 from bokeh.transform import cumsum
 from datetime import datetime
 
-def message_timeseries_panel(message_df, title, participants, colour_palette):
+def create_message_timeseries_panel(message_df, title, participants, colour_palette):
     """ Creates a plot of messages to a chat over time
 
         Parameters:
@@ -255,7 +255,7 @@ def message_timeseries_panel(message_df, title, participants, colour_palette):
     return message_panel
 
 
-def react_breakdown_panel(reacts, title, participants, colour_palette):
+def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     def update_pie_chart(attr, old, new):
         df = deepcopy(reacts_individual)
@@ -369,7 +369,7 @@ def react_breakdown_panel(reacts, title, participants, colour_palette):
 
     return reacts_panel
 
-def individual_statistics_panel(message_df, title, participants, colour_palette):
+def create_individual_statistics_panel(message_df, title, participants, colour_palette):
 
     type_counts = message_df.groupby(['Name', 'Type']).count().reset_index()
 
