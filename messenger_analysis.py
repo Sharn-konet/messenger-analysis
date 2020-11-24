@@ -18,17 +18,21 @@ from bokeh.plotting import show
 from bokeh.palettes import Category20
 from bokeh.models import Tabs, AutocompleteInput, Div
 from bokeh.layouts import column, layout, row, Spacer
+from bokeh.document import Document
 
-from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_individual_statistics_panel
+from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_message_log_panel, create_title_screen
 from messenger_analysis_data_functions import parse_html_title, parse_html_messages, parse_json_messages, get_chat_titles, update_data, create_document
 
 # -------------------------------------------------------------------------
 # Parsing Messenger Files:
 # -------------------------------------------------------------------------
 
-html_directories = glob("**/messages/inbox/*/*.html", recursive=True)
-html_directories = {directory.split(
-    "\\")[-2]: directory for directory in html_directories}
+show(create_title_screen())
+
+introduction_panel = create_title_screen()
+
+html_directories = glob("**/messages/inbox/*/*.html", recursive = True)
+html_directories = {directory.split("\\")[-2]: directory for directory in html_directories}
 message_names = {key: key.split("_")[0] for key in html_directories}
 
 json_directories = glob("**/messages/inbox/*/*.json", recursive = True)
@@ -37,9 +41,9 @@ json_directories = {name: [directory for directory in json_directories if name i
 #html_names = {name: parse_html_title(directory) for name, directory in html_directories.items()}
 chat_titles = {get_chat_titles(json_directories, key): key for key in json_directories}
 
-directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
+directory = html_directories['HelenChambers_iBdYJMhaNw']
 
-json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
+json_directory = json_directories['HelenChambers_iBdYJMhaNw']
 
 #'MaxPitto_V4hEVp1UCQ'
 
@@ -50,4 +54,5 @@ layout = create_document(json_directory, chat_titles)
 show(layout)
 
 curdoc().title = "Messenger Analysis"
+
 curdoc().add_root(layout)

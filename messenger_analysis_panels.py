@@ -10,19 +10,66 @@
 
 import pandas as pd
 import numpy as np
+import matplotlib as plt
+from functools import partial
 from math import pi
 from copy import deepcopy
 from bokeh.palettes import Category20
 from scipy.optimize import curve_fit
-from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, HoverTool, Select, DateFormatter, TableColumn
+from bokeh.models import ColumnDataSource, GroupFilter, CDSView, BoxAnnotation, Panel, HoverTool, Select, DateFormatter, TableColumn, AutocompleteInput, Div, Button
 from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.models.widgets.sliders import DateRangeSlider
 from bokeh.models.formatters import NumeralTickFormatter
 from bokeh.models.widgets.tables import DataTable
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.plotting import figure
+from bokeh.core.properties import Color
 from bokeh.transform import cumsum
 from datetime import datetime
+
+def create_title_screen():
+    """
+    """
+    header = Div(text = """
+        <h3 align = "center">Welcome to Messenger Analysis!</h3>
+        <p><strong></strong></p>
+        <p>This is a data visualisation tool for visualising Facebook Messenger data. In order to use it properly you need to download a copy of your own messenger data from Facebook, a tutorial can be found <a href = https://www.facebook.com/help/1701730696756992?helpref=hc_global_nav>here</a>. If you have the JSON version of the download you will get <b>more functionality</b>, but the HTML version is supported as well.<img src="messenger_analysis/statics/test.png" alt="eye-washing" /></p>
+
+        <h4 align = "center">
+        Please select which format your downloaded data is in:
+        </h4>
+        """,
+        height_policy = "max",
+        sizing_mode = "scale_both",
+        align = "end",
+        style = {"font-family": 'Verdana'}
+    )
+
+    jsonButton = Button(
+        align = "center",
+        #background = Color((80, 220, 100)),
+        button_type = "warning",
+        label = "JSON",
+        height = 50,
+        width = 350,
+        sizing_mode = "fixed"
+    )
+    #jsonButton.on_click(partial(initial_setup, format = "JSON"))
+
+    htmlButton = Button(
+        align = "center",
+        #background = (80, 220, 100),
+        button_type = "success",
+        label = "HTML",
+        height = 50,
+        width = 350,
+        sizing_mode = "fixed"   
+    )
+    #htmlButton.on_click(partial(initial_setup, format = "HTML"))
+
+    introduction_panel = layout(column(children = [header, jsonButton, htmlButton], sizing_mode = "stretch_width"), sizing_mode = "stretch_width")
+
+    return introduction_panel
 
 def create_message_timeseries_panel(message_df, title, participants, colour_palette):
     """ Creates a plot of messages to a chat over time
@@ -369,8 +416,18 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     return reacts_panel
 
-def create_individual_statistics_panel(message_df, title, participants, colour_palette):
+def create_message_log_panel(message_df, title, participants, colour_palette):
 
+    def filter_for_user(attr, old, new):
+        df = deepcopy(message_df)
+        df = df[df['Type']=='Message']
+        if new in participants:
+            df = df[df['Name'] == new]
+            message_CDS.data = df
+        elif new == 'all':
+            message_CDS.data = df
+
+    # Old version, probably not so relevant anymore
     type_counts = message_df.groupby(['Name', 'Type']).count().reset_index()
 
     type_counts = ColumnDataSource(type_counts)
@@ -391,12 +448,43 @@ def create_individual_statistics_panel(message_df, title, participants, colour_p
         TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"), width = 10)
     ]
 
-    data_table = DataTable(source = ColumnDataSource(message_df[message_df['Type']=='Message']), columns = columns, fit_columns = True, width = 700, height = 350)
+    message_CDS = ColumnDataSource(message_df[message_df['Type']=='Message'])
 
-    indiv_statistics_panel = layout([
-        data_table
+    data_table = DataTable(source = message_CDS, columns = columns, fit_columns = True, width = 700, height = 350)
+
+    directory_search = AutocompleteInput(completions = participants, width = 400, height = 30, sizing_mode = "fixed", align = 'start')
+    directory_search.on_change("value", filter_for_user)
+
+    filter_text = Div(
+        text = "Filter for a Particular User:",
+        height_policy = "max",
+        sizing_mode = "scale_both",
+        align = "end",
+        style = {"font-family": 'Verdana', "font-size": "17px"}
+    )
+    
+    filter_input = row(filter_text, directory_search)
+
+    message_log_panel = layout([
+        column(filter_input, data_table, sizing_mode = "scale_both")
     ], sizing_mode = "scale_both")
 
-    indiv_statistics_panel = Panel(child=indiv_statistics_panel, title='Message Log')
+    message_log_panel = Panel(child=message_log_panel, title='Message Log')
 
-    return indiv_statistics_panel
+    return message_log_panel
+
+def create_individual_statistics_panel(message_df, title, participants, colour_palette):
+    """ Create a panel which summarises the individual statistics of any user within the selected group.
+    """
+
+    all_messages = message_df.loc[message_df['Type'] == 'Message', 'Message'].reset_index()['Message']
+
+    lengths = [*map(len, all_messages)]
+    print("The maximum length message you've ever sent is: {}".format(max(lengths)))
+    print("\nThe message was: \n {}".format(all_messages.loc[lengths.index(max(lengths))]))
+
+    lengths.sort()
+
+    # From this it seems like 70 characters would be a good amount of characters to use
+    plt.hist(lengths[:int(len(lengths)*0.95)], bins = len({*lengths[:int(len(lengths)*0.95)]}))
+    plt.show()

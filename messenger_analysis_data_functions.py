@@ -14,6 +14,7 @@ import itertools
 import pandas as pd
 from datetime import datetime
 from glob import glob
+from functools import partial
 
 from bokeh.palettes import Category20
 from bokeh.io import curdoc
@@ -21,7 +22,7 @@ from bokeh.layouts import column
 from bokeh.models import Tabs, AutocompleteInput, Div
 from bokeh.layouts import column, row, Spacer
 
-from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_individual_statistics_panel
+from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_message_log_panel, create_individual_statistics_panel
 
 def get_chat_titles(directories, key):
     directory = directories[key][0]
@@ -277,13 +278,13 @@ def create_document(directory, chat_titles):
     # Create Panel to Summarise Individual Statistics:
     # --------------------------------------------------------------------------+
 
-    individual_statistics_panel = create_individual_statistics_panel(message_df, title, participants, colour_palette)
+    message_log_panel = create_message_log_panel(message_df, title, participants, colour_palette)
 
     # --------------------------------------------------------------------------+
     # Compile Bokeh Application:
     # --------------------------------------------------------------------------+
 
-    tabs = Tabs(tabs=[message_panel, reacts_panel, individual_statistics_panel])
+    tabs = Tabs(tabs=[message_panel, reacts_panel, message_log_panel])
 
     directory_search = AutocompleteInput(completions = list(chat_titles.keys()), width = 400, height = 30, sizing_mode = "fixed", align = 'end')
     directory_search.on_change("value", update_data)
@@ -329,3 +330,29 @@ def update_data(attr, old, new):
         curdoc().add_root(new_root)
 
         curdoc().remove_root(curdoc().roots[0])
+
+"""
+def inital_setup(format):
+
+    if format == "JSON":
+        json_directories = glob("**/messages/inbox/*/*.json", recursive = True)
+        unique_chatnames = {*map(lambda dir: dir.split("\\")[-2], json_directories)}
+        json_directories = {name: [directory for directory in json_directories if name in directory] for name in unique_chatnames}
+        chat_titles = {get_chat_titles(json_directories, key): key for key in json_directories}
+        directory = html_directories['THELOVECHAT_BT-aNw8Nzg']
+
+    elif format == "HTML":
+        html_directories = glob("**/messages/inbox/*/*.html", recursive = True)
+        html_directories = {directory.split("\\")[-2]: directory for directory in html_directories}
+        # need to check if JSOn and HTML give same output
+        chat_titles = {name: parse_html_title(directory) for name, directory in html_directories.items()}
+        message_names = {key: key.split("_")[0] for key in html_directories}
+        directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
+    else:
+        break
+    layout = create_document(json_directory, chat_titles)
+
+    curdoc().title = "Messenger Analysis"
+
+    curdoc().add_root(layout)
+"""
