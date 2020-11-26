@@ -11,6 +11,9 @@
 import pandas as pd
 import numpy as np
 import matplotlib as plt
+import plotly.graph_objects as go
+import dash_core_components as dcc
+
 from functools import partial
 from math import pi
 from copy import deepcopy
@@ -71,7 +74,7 @@ def create_title_screen():
 
     return introduction_panel
 
-def create_message_timeseries_panel(message_df, title, participants, colour_palette):
+def create_message_timeseries_fig(message_df, title, participants, colour_palette):
     """ Creates a plot of messages to a chat over time
 
         Parameters:
@@ -161,145 +164,48 @@ def create_message_timeseries_panel(message_df, title, participants, colour_pale
     end_date = max(message_df.loc[:, 'Date'])
 
     # Create widget objects:
-    name_buttons = CheckboxButtonGroup(labels=participants, active=[
-                                    i for i in range(len(participants))])
-    date_slider = DateRangeSlider(
-        end=end_date, start=start_date, value=(start_date, end_date), step=1)
 
-    # Create figures to be included:
-    main_figure = figure(plot_width=800, plot_height=250,
-            x_axis_type="datetime", toolbar_location=None)
-    main_figure.toolbar.logo = None
-    main_figure.x_range.start = start_date
-    main_figure.x_range.end = end_date
-    main_figure.toolbar.active_drag = None
-    main_figure.toolbar.active_scroll = None
+    main_figure = go.Figure()
 
-    messages_tooltip = HoverTool(
-        tooltips=[
-            ('Name', '@Name'),
-            ('Message Count', '@Message'),
-            ('Date', '@Date{%A, %e %B %Y}')
-        ],
-        formatters={
-            '@Date': "datetime"
-        }
-    )
+    # messages_tooltip = HoverTool(
+    #     tooltips=[
+    #         ('Name', '@Name'),
+    #         ('Message Count', '@Message'),
+    #         ('Date', '@Date{%A, %e %B %Y}')
+    #     ],
+    #     formatters={
+    #         '@Date': "datetime"
+    #     }
+    # )
 
-    main_figure.add_tools(messages_tooltip)
-
-    overview_figure = figure(plot_height=80, plot_width=800, x_axis_type='datetime', toolbar_location=None,
-                x_range=(start_date, end_date))
-    overview_figure.yaxis.major_label_text_color = None
-    overview_figure.yaxis.major_tick_line_color = None
-    overview_figure.yaxis.minor_tick_line_color = None
-    overview_figure.grid.grid_line_color = None
-    overview_figure.toolbar.active_drag = None
-    overview_figure.toolbar.active_scroll = None
-
-    box = BoxAnnotation(fill_alpha=0.5, line_alpha=0.5,
-                        level='underlay', left=start_date, right=end_date)
+    # main_figure.add_tools(messages_tooltip)
 
     messages = message_df.groupby(['Name', 'Date']).count().reset_index()
     messages = messages.loc[:, messages.columns != 'Reacts']
 
-    source = ColumnDataSource(data=messages)
-
     # Plot a line for each person onto both figures:
     for index, name in enumerate(participants):
-        view = CDSView(source=source,
-                    filters=[GroupFilter(column_name='Name', group=name)])
+        view = messages[messages['Name'] == name]
 
-        main_figure.line(
-            x='Date',
-            y='Message',
-            source=source,
-            view=view,
-            alpha=0.45,
-            muted_color=colour_palette[index],
-            muted_alpha=0.2,
-            legend_label=name,
-            color=colour_palette[index]
-        )
+        main_figure.add_trace(go.Scatter(x=view['Date'], y=view['Message'],
+            name = name,
+            line_shape = 'linear',
+            opacity = 0.55,
+            line = dict(color=colour_palette[index]),
+            mode = 'lines+markers'
+        ))
 
-        main_figure.circle(
-            x='Date',
-            y='Message',
-            alpha=0.55,
-            source=source,
-            view=view,
-            muted_color=colour_palette[index],
-            muted_alpha=0.2,
-            legend_label= name,
-            color=colour_palette[index]
-        )
-
-        overview_figure.line(
-            x='Date',
-            y='Message',
-            source=source,
-            view=view,
-            color=colour_palette[index]
-        )
-
-    if len(participants) > 2:
-        plot_summary_data(messages)
-
-    main_figure.xaxis.axis_label = 'Time'
-    main_figure.yaxis.axis_label = 'Total Messages'
-    main_figure.title.text = title
-    main_figure.legend.location = "top_right"
-    main_figure.legend.click_policy = "mute"
-    main_figure.legend.orientation = 'horizontal'
-    main_figure.legend.spacing = 7
-
-    overview_figure.add_layout(box)
-
-    # --------------------------------------------------------------------------+
-    # Creating Real Python callbacks for interaction between plots and widgets |
-    # --------------------------------------------------------------------------+
-
-    def update_graph(active_labels):
-        df = message_df
-        selected_names = [name_buttons.labels[i] for i in name_buttons.active]
-        df = df[df['Name'].isin(selected_names)]
-        df = df.groupby(by=['Name', 'Date']).count().reset_index()
-        source.data = dict(
-            Date=df['Date'],
-            Message=df['Message'],
-            Name=df["Name"],
-        )
+    main_figure.update_layout(
+        title = title,
+        xaxis_title = "Time",
+        yaxis_title = "Total Messages",
+        legend_title = "Participants",
+        height = 500,
+        width = 1500
+    )
 
 
-    def update_range(attr, old, new):
-        start = datetime.fromtimestamp(new[0]/1e3)
-        end = datetime.fromtimestamp(new[1]/1e3)
-        main_figure.x_range.start = start
-        main_figure.x_range.end = end
-
-        box.left = start
-        box.right = end
-
-    # Assign callbacks to appropriate widget interactions
-    name_buttons.on_click(update_graph)
-    date_slider.on_change('value', update_range)
-
-    date_slider_layout = row(Spacer(
-        width=46, height=50, sizing_mode="fixed"), date_slider, sizing_mode="scale_width")
-
-    plots = column(main_figure, date_slider_layout, overview_figure, sizing_mode="scale_width")
-
-    # Create the layout of the Bokeh application
-    message_timeseries = layout([
-        [name_buttons],
-        [plots]
-    ], sizing_mode="scale_width")
-
-    message_timeseries.margin = (10, 35, 60, 20)
-
-    message_panel = Panel(child=message_timeseries, title='Message Data')
-
-    return message_panel
+    return main_figure
 
 
 def create_react_breakdown_panel(reacts, title, participants, colour_palette):

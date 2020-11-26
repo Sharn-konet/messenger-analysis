@@ -25,8 +25,9 @@ from bokeh.palettes import Category20
 from bokeh.models import Tabs, AutocompleteInput, Div
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.document import Document
+from dash_html_components.H1 import H1
 
-from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_message_log_panel, create_title_screen
+from messenger_analysis_panels import create_message_timeseries_fig, create_react_breakdown_panel, create_message_log_panel, create_title_screen
 from messenger_analysis_data_functions import parse_html_title, parse_html_messages, parse_json_messages, get_chat_titles, update_data, create_document
 
 # -------------------------------------------------------------------------
@@ -51,21 +52,41 @@ chat_titles = {get_chat_titles(json_directories, key): key for key in json_direc
 
 directory = html_directories['HelenChambers_iBdYJMhaNw']
 
-json_directory = json_directories['HelenChambers_iBdYJMhaNw']
+json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 
 #'MaxPitto_V4hEVp1UCQ'
+#'THELOVECHAT_BT-aNw8Nzg'
 
 #(message_df, reacts, title, participants) = parse_html_messages(directory)
 
+(message_df, reacts, title, participants) = parse_json_messages(json_directory)
+colour_palette = Category20[20][0:len(participants)]
+
+mt_fig = create_message_timeseries_fig(message_df, title, participants, colour_palette)
+
 app.layout = html.Div([
     html.Datalist(id = 'chat-titles', children = [html.Option(id = value, value = key) for key, value in chat_titles.items()]),
-    dcc.Input(id = 'chat-search', value = 'Search chats...', list= 'chat-titles'),
-    dcc.Tabs(id="pages", value='Timeline', children = [
-        dcc.Tab(label = "Message Data", value = 'timeline'),
-        dcc.Tab(label = 'Reacts Data', value = 'reacts'),
-        dcc.Tab(label = "Message Log", value = "log")
-    ]),
-    html.Div(id = 'tab-content')
+    html.Div([
+        html.H1("Messenger Analysis"),
+        dcc.Input(id = 'chat-search', 
+        placeholder = 'Search chats...', 
+        list= 'chat-titles',
+        type = "search",
+        debounce = True)],
+        style = {
+            'margin': '25px 10px 10px 10px'
+        }),
+    html.Div([
+        dcc.Tabs(id="pages", value='timeline', children = [
+            dcc.Tab(label = "Message Data", value = 'timeline'),
+            dcc.Tab(label = 'Reacts Data', value = 'reacts'),
+            dcc.Tab(label = "Message Log", value = "log")
+        ])], style = {"height": "50px", "margin": "10px"}
+    ),
+    dcc.Graph(
+        id = 'message-timeline'
+    )
+
 ])
 
 """
@@ -78,13 +99,19 @@ def switch_tab(tab):
     elif tab == 'log':
         return create_message_log_panel
 
-# This wont work until figure out how the app is layed out.
-@app.callback(Output('tab-content', 'children'), Input('pages', 'value'))
-def chat_search(chat_name):
-    if chat_name in chat_titles:
-        # need to find a good way to update the page with new data.
-        refresh_tab()
 """
+@app.callback(Output('message-timeline', 'figure'), Input('chat-search', 'value'))
+def chat_search(chat_name):
+    if chat_name not in chat_titles.keys():
+        return dash.no_update
+
+    json_directory = json_directories[chat_titles[chat_name]]
+    # need to find a good way to update the page with new data.
+    (message_df, reacts, title, participants) = parse_json_messages(json_directory)
+    colour_palette = Category20[20][0:len(participants)]
+
+    return create_message_timeseries_fig(message_df, title, participants, colour_palette)
+
 
 if __name__ == '__main__':
     app.run_server(debug = True)

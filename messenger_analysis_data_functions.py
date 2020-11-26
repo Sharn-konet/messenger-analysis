@@ -22,7 +22,7 @@ from bokeh.layouts import column
 from bokeh.models import Tabs, AutocompleteInput, Div
 from bokeh.layouts import column, row, Spacer
 
-from messenger_analysis_panels import create_message_timeseries_panel, create_react_breakdown_panel, create_message_log_panel, create_individual_statistics_panel
+from messenger_analysis_panels import create_message_timeseries_fig, create_react_breakdown_panel, create_message_log_panel, create_individual_statistics_panel
 
 def get_chat_titles(directories, key):
     directory = directories[key][0]
@@ -242,7 +242,6 @@ def parse_json_messages(directories):
 
     for key in keys_to_remove:
         del message_df[key]
-
 
     reacts_list = [*message_df['Reacts']]
     reacts = [react for reacts in reacts_list for react in reacts if len(reacts) > 0]
