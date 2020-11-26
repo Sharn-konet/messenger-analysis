@@ -237,18 +237,37 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     reacts_source = ColumnDataSource(reacts)
 
+    react_pie_fig = go.Figure()
+    react_bar_fig = go.Figure(
+        [go.Bar(name = individual, 
+                x = reacts[individual].index.values, 
+                y = reacts[individual].values) 
+        for individual in participants]
+    )
+
     react_tooltip = [
         ("Name", "$name"),
         ("React", "@Reacts"),
         ("Percentage", "@$name{ 0.0%}")
     ]
 
-    bargraph_figure = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
-                y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
+    react_bar_fig.update_layout(
+        width = 1500,
+        height = 800,
+        barmode = 'stack'
+    )
 
-    bargraph_figure.xaxis.major_label_text_font_size = "25pt"
-    bargraph_figure.toolbar.active_drag = None
-    bargraph_figure.toolbar.active_scroll = None
+    return react_bar_fig
+
+    # bargraph_figure = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
+    #             y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
+
+    # bargraph_figure.xaxis.major_label_text_font_size = "25pt"
+    # bargraph_figure.toolbar.active_drag = None
+    # bargraph_figure.toolbar.active_scroll = None
+
+    
+
 
     bargraph_figure.vbar_stack(
         participants,

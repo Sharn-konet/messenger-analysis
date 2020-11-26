@@ -63,6 +63,7 @@ json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 colour_palette = Category20[20][0:len(participants)]
 
 mt_fig = create_message_timeseries_fig(message_df, title, participants, colour_palette)
+react_fig = create_react_breakdown_panel(reacts, title, participants, colour_palette)
 
 app.layout = html.Div([
     html.Datalist(id = 'chat-titles', children = [html.Option(id = value, value = key) for key, value in chat_titles.items()]),
@@ -89,6 +90,8 @@ app.layout = html.Div([
 
 ])
 
+
+
 """
 @app.callback(Output('tab-content', 'children'), Input('pages', 'value'))
 def switch_tab(tab):
@@ -110,8 +113,8 @@ def chat_search(chat_name):
     (message_df, reacts, title, participants) = parse_json_messages(json_directory)
     colour_palette = Category20[20][0:len(participants)]
 
-    return create_message_timeseries_fig(message_df, title, participants, colour_palette)
-
+    #return create_message_timeseries_fig(message_df, title, participants, colour_palette)
+    return create_react_breakdown_panel(reacts, title, participants, colour_palette)
 
 if __name__ == '__main__':
     app.run_server(debug = True)

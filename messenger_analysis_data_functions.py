@@ -265,7 +265,7 @@ def create_document(directory, chat_titles):
     """ Might raise an error when number of people in the group chat is > 20"""
     colour_palette = Category20[20][0:len(participants)]
 
-    message_panel = create_message_timeseries_panel(message_df, title, participants, colour_palette)
+    message_panel = create_message_timeseries_fig(message_df, title, participants, colour_palette)
 
     # --------------------------------------------------------------------------+
     # Plot Reaction Panel:
