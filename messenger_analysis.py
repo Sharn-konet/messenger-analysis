@@ -13,6 +13,12 @@
 
 from glob import glob
 
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+
+from dash.dependencies import Input, Output
+
 from bokeh.io import curdoc
 from bokeh.plotting import show
 from bokeh.palettes import Category20
@@ -27,7 +33,9 @@ from messenger_analysis_data_functions import parse_html_title, parse_html_messa
 # Parsing Messenger Files:
 # -------------------------------------------------------------------------
 
-show(create_title_screen())
+app = dash.Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
+
+
 
 introduction_panel = create_title_screen()
 
@@ -49,10 +57,34 @@ json_directory = json_directories['HelenChambers_iBdYJMhaNw']
 
 #(message_df, reacts, title, participants) = parse_html_messages(directory)
 
-layout = create_document(json_directory, chat_titles)
+app.layout = html.Div([
+    html.Datalist(id = 'chat-titles', children = [html.Option(id = value, value = key) for key, value in chat_titles.items()]),
+    dcc.Input(id = 'chat-search', value = 'Search chats...', list= 'chat-titles'),
+    dcc.Tabs(id="pages", value='Timeline', children = [
+        dcc.Tab(label = "Message Data", value = 'timeline'),
+        dcc.Tab(label = 'Reacts Data', value = 'reacts'),
+        dcc.Tab(label = "Message Log", value = "log")
+    ]),
+    html.Div(id = 'tab-content')
+])
 
-show(layout)
+"""
+@app.callback(Output('tab-content', 'children'), Input('pages', 'value'))
+def switch_tab(tab):
+    if tab == 'timeline':
+        return create_message_timeseries_panel
+    elif tab == 'reacts':
+        return create_react_breakdown_panel
+    elif tab == 'log':
+        return create_message_log_panel
 
-curdoc().title = "Messenger Analysis"
+# This wont work until figure out how the app is layed out.
+@app.callback(Output('tab-content', 'children'), Input('pages', 'value'))
+def chat_search(chat_name):
+    if chat_name in chat_titles:
+        # need to find a good way to update the page with new data.
+        refresh_tab()
+"""
 
-curdoc().add_root(layout)
+if __name__ == '__main__':
+    app.run_server(debug = True)
