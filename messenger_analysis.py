@@ -34,7 +34,9 @@ from messenger_analysis_data_functions import parse_html_title, parse_html_messa
 # Parsing Messenger Files:
 # -------------------------------------------------------------------------
 
-app = dash.Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
+app = dash.Dash(__name__, 
+                external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'],
+                title = "Messenger Analysis")
 
 
 
@@ -68,16 +70,24 @@ react_fig = create_react_breakdown_panel(reacts, title, participants, colour_pal
 app.layout = html.Div([
     html.Datalist(id = 'chat-titles', children = [html.Option(id = value, value = key) for key, value in chat_titles.items()]),
     html.Div([
-        html.H1("Messenger Analysis"),
-        html.Div(
-        dcc.Input(id = 'chat-search', 
-        placeholder = 'Search chats...', 
-        list= 'chat-titles',
-        type = "search",
-        debounce = False), )],
+        html.Div(id = "header",
+            children = [html.H1("Messenger Analysis", className = "title-text"),
+            dcc.Input(
+                id = 'chat-search', 
+                placeholder = 'Search chats...', 
+                list = 'chat-titles',
+                type = "search",
+                debounce = False,
+                className = 'search-bar')],
+            style = {
+                'width': '100%',
+                'margin': 'auto'
+            })],
         style = {
-            'margin': '25px 10px 10px 10px'
+            'margin': "1% 2.5%",
+            'width': '100%'
         }),
+    html.Br(style = {'clear': 'both'}),
     html.Div([
         dcc.Tabs(id="pages", value='timeline', children = [
             dcc.Tab(label = "Message Data", value = 'timeline'),
@@ -85,10 +95,12 @@ app.layout = html.Div([
             dcc.Tab(label = "Message Log", value = "log")
         ]),
         html.Div(id = 'main-content', children = [
-        ])], style = {"height": "50px", "margin": "10px"}
+        ])], style = {"height": "50px", "width": "100%"}
+    )], style = {'clear': 'both',
+                 'position': 'relative',
+                 'float': 'left',
+                 'width': '100%'}
     )
-    
-])
 
 @app.callback(Output('main-content', 'children'), Input('pages', 'value'), Input('chat-search', 'value'))
 def switch_tabs(tab, chat_name):
