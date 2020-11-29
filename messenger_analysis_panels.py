@@ -205,16 +205,16 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
     )
 
 
-    return main_figure
+    return dcc.Graph(id = 'timeline', figure = main_figure)
 
 
 def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
-    def update_pie_chart(attr, old, new):
-        df = deepcopy(reacts_individual)
-        df = df[df['Name'] == new]
-        reacts_indiv_CDS.data = df
-        piechart_figure.title.text = "Distribution of Reactions for " + str(new)
+    # def update_pie_chart(attr, old, new):
+    #     df = deepcopy(reacts_individual)
+    #     df = df[df['Name'] == new]
+    #     reacts_indiv_CDS.data = df
+    #     piechart_figure.title.text = "Distribution of Reactions for " + str(new)
 
     unique_reacts = reacts['Reacts'].unique()
 
@@ -237,7 +237,19 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     reacts_source = ColumnDataSource(reacts)
 
-    react_pie_fig = go.Figure()
+    react_pie_fig = go.Figure(
+        data=[go.Pie(
+            labels = list({*reacts_individual['Reacts']}),
+            values = reacts_individual[reacts_individual['Name'] == participants[0]]['Count']
+        )]
+    )
+
+    react_pie_fig.update_layout(
+        width = 423,
+        height = 423,
+        title = "Breakdown of Reacts from {}".format(participants[0])
+    )
+
     react_bar_fig = go.Figure(
         [go.Bar(name = individual, 
                 x = reacts[individual].index.values, 
@@ -257,7 +269,12 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
         barmode = 'stack'
     )
 
-    return react_bar_fig
+    graphs = [
+        dcc.Graph(id = 'react-graph', figure = react_bar_fig),
+        dcc.Graph(id = 'react-bar', figure = react_pie_fig)
+    ]
+
+    return graphs
 
     # bargraph_figure = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
     #             y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")

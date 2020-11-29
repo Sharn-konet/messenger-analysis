@@ -69,11 +69,12 @@ app.layout = html.Div([
     html.Datalist(id = 'chat-titles', children = [html.Option(id = value, value = key) for key, value in chat_titles.items()]),
     html.Div([
         html.H1("Messenger Analysis"),
+        html.Div(
         dcc.Input(id = 'chat-search', 
         placeholder = 'Search chats...', 
         list= 'chat-titles',
         type = "search",
-        debounce = True)],
+        debounce = False), )],
         style = {
             'margin': '25px 10px 10px 10px'
         }),
@@ -82,29 +83,15 @@ app.layout = html.Div([
             dcc.Tab(label = "Message Data", value = 'timeline'),
             dcc.Tab(label = 'Reacts Data', value = 'reacts'),
             dcc.Tab(label = "Message Log", value = "log")
+        ]),
+        html.Div(id = 'main-content', children = [
         ])], style = {"height": "50px", "margin": "10px"}
-    ),
-    dcc.Graph(
-        id = 'message-timeline'
     )
-
+    
 ])
 
-
-
-"""
-@app.callback(Output('tab-content', 'children'), Input('pages', 'value'))
-def switch_tab(tab):
-    if tab == 'timeline':
-        return create_message_timeseries_panel
-    elif tab == 'reacts':
-        return create_react_breakdown_panel
-    elif tab == 'log':
-        return create_message_log_panel
-
-"""
-@app.callback(Output('message-timeline', 'figure'), Input('chat-search', 'value'))
-def chat_search(chat_name):
+@app.callback(Output('main-content', 'children'), Input('pages', 'value'), Input('chat-search', 'value'))
+def switch_tabs(tab, chat_name):
     if chat_name not in chat_titles.keys():
         return dash.no_update
 
@@ -113,8 +100,12 @@ def chat_search(chat_name):
     (message_df, reacts, title, participants) = parse_json_messages(json_directory)
     colour_palette = Category20[20][0:len(participants)]
 
-    #return create_message_timeseries_fig(message_df, title, participants, colour_palette)
-    return create_react_breakdown_panel(reacts, title, participants, colour_palette)
+    if tab == 'timeline':
+        return create_message_timeseries_fig(message_df, title, participants, colour_palette)
+    elif tab == 'reacts':
+        return create_react_breakdown_panel(reacts, title, participants, colour_palette)
+    elif tab == 'log':
+        return create_message_log_panel()
 
 if __name__ == '__main__':
     app.run_server(debug = True)
