@@ -8,3 +8,4 @@ dist/*
 **/messages
 **/json_facebook_query
 *.spec
+cache/*

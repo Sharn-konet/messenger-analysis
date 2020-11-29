@@ -13,6 +13,8 @@
 
 from glob import glob
 
+import os
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -26,6 +28,7 @@ from bokeh.models import Tabs, AutocompleteInput, Div
 from bokeh.layouts import column, layout, row, Spacer
 from bokeh.document import Document
 from dash_html_components.H1 import H1
+from flask_caching import Cache
 
 from messenger_analysis_panels import create_message_timeseries_fig, create_react_breakdown_panel, create_message_log_panel, create_title_screen
 from messenger_analysis_data_functions import parse_html_title, parse_html_messages, parse_json_messages, get_chat_titles, update_data, create_document
@@ -38,7 +41,14 @@ app = dash.Dash(__name__,
                 external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'],
                 title = "Messenger Analysis")
 
-
+CACHE_CONFIG = {
+    # try 'filesystem' if you don't want to setup redis
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': 'cache',
+    'CACHE_DEFAULT_TIMEOUT': 3600,
+}
+cache = Cache()
+cache.init_app(app.server, config=CACHE_CONFIG)
 
 introduction_panel = create_title_screen()
 
@@ -76,8 +86,8 @@ app.layout = html.Div([
                 id = 'chat-search', 
                 placeholder = 'Search chats...', 
                 list = 'chat-titles',
-                type = "search",
-                debounce = False,
+                type = "text",
+                debounce = True,
                 className = 'search-bar')],
             style = {
                 'width': '100%',
@@ -96,21 +106,36 @@ app.layout = html.Div([
         ]),
         html.Div(id = 'main-content', children = [
         ])], style = {"height": "50px", "width": "100%"}
-    )], style = {'clear': 'both',
+    ),
+    html.Div(id='signal', style = {'display': 'none'})], style = {'clear': 'both',
                  'position': 'relative',
                  'float': 'left',
                  'width': '100%'}
     )
 
-@app.callback(Output('main-content', 'children'), Input('pages', 'value'), Input('chat-search', 'value'))
-def switch_tabs(tab, chat_name):
+@cache.memoize()
+def parse_messages(chat_name):
     if chat_name not in chat_titles.keys():
-        return dash.no_update
-
+        return
     json_directory = json_directories[chat_titles[chat_name]]
     # need to find a good way to update the page with new data.
     (message_df, reacts, title, participants) = parse_json_messages(json_directory)
     colour_palette = Category20[20][0:len(participants)]
+    return (message_df, reacts, title, participants, colour_palette)
+
+@app.callback(Output('signal', 'children'), Input('chat-search', 'value'))
+def switch_chats(chat_name):
+    parse_messages(chat_name)
+    return chat_name
+
+
+@app.callback(Output('main-content', 'children'), Input('pages', 'value'), Input('signal', 'children'))
+def switch_tabs(tab, chat_name):
+
+    if parse_messages(chat_name) is None:
+        return dash.no_update
+
+    (message_df, reacts, title, participants, colour_palette) = parse_messages(chat_name)
 
     if tab == 'timeline':
         return create_message_timeseries_fig(message_df, title, participants, colour_palette)

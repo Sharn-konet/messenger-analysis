@@ -200,6 +200,7 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
         xaxis_title = "Time",
         yaxis_title = "Total Messages",
         legend_title = "Participants",
+        transition_duration = 800,
         height = 500,
         width = 1500
     )
