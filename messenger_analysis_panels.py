@@ -28,7 +28,8 @@ from bokeh.layouts import column, layout, row, Spacer
 from bokeh.plotting import figure
 from bokeh.core.properties import Color
 from bokeh.transform import cumsum
-from datetime import datetime
+from datetime import date, timedelta
+from itertools import product
 
 def create_title_screen():
     """
@@ -99,65 +100,14 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
             A layout of graphs for analysis of message data
     """
     
-    def plot_summary_data(messages):
+    def aggregate(messages):
 
-        # See if your chat is dying:
-        def curve(x, a, b, c):
-            return a * np.exp(-b * x) + c
+        aggregated_messages = messages.groupby(['Date', 'Name']).mean()
+        aggregated_messages = aggregated_messages.reset_index(level=1, drop=False)
+        aggregated_messages = aggregated_messages.groupby('Name')
+        aggregated_messages = aggregated_messages.resample('2W', convention='end').mean().reset_index() # Convert to a weekly aggregation of messages
 
-        total_messages = messages.groupby('Date').mean()
-        total_messages = total_messages.resample('W', convention='end').sum().reset_index() # Convert to a weekly aggregation of messages
-
-        x_data = total_messages.Date.array.asi8/ 1e18
-        y_data = total_messages['Message'].values
-
-        popt, _ = curve_fit(curve, x_data, y_data, maxfev = 100000)
-
-        x_data_step = x_data[1] - x_data[0]
-
-        x_data = list(x_data)
-
-        for _ in range(51):
-            x_data.append(x_data[-1] + x_data_step)
-
-        x_data = np.array(x_data)
-
-        y_prediction = curve(x_data, *popt)
-
-        total_messages['Prediction'] = y_prediction[:len(total_messages)]
-
-        total_messages_cds = ColumnDataSource(data=total_messages)
-
-        main_figure.line(
-            x='Date',
-            y='Message',
-            source=total_messages_cds,
-            alpha=0.45,
-            muted_alpha=0.2,
-            legend_label = 'Weekly Total',
-            color = 'black'
-            )
-
-        main_figure.circle(
-            x='Date',
-            y='Message',
-            source=total_messages_cds,
-            alpha=0.45,
-            muted_alpha=0.2,
-            legend_label = 'Weekly Average',
-            color = 'black'
-            )
-
-        main_figure.line(
-            x='Date',
-            y='Prediction',
-            source=total_messages_cds,
-            alpha=0.45,
-            muted_alpha=0.2,
-            legend_label = 'Trend',
-            line_dash = 'dashed',
-            color = 'red'
-        )
+        return aggregated_messages
 
     # Find x-axis limits:
     start_date = min(message_df.loc[:, 'Date'])
@@ -166,6 +116,8 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
     # Create widget objects:
 
     main_figure = go.Figure()
+
+    
 
     # messages_tooltip = HoverTool(
     #     tooltips=[
@@ -182,14 +134,27 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
 
     messages = message_df.groupby(['Name', 'Date']).count().reset_index()
     messages = messages.loc[:, messages.columns != 'Reacts']
+    
+    # Create 0 entries on each day
+    existing_entries = {*zip(messages.Name, messages.Date)}
+    time_interval = end_date - start_date
+    all_days = [start_date + timedelta(days = days) for days in range(time_interval.days + 1)]
+    missing_entries = {*product(participants, all_days)} - existing_entries 
+    missing_entries = [(participant, day, 0, 0, 0) for participant, day in missing_entries]
+    missing_entries = pd.DataFrame(data = missing_entries, columns = messages.columns)
+
+    messages = messages.append(missing_entries)
+
+    agg_messages = aggregate(messages)
+    agg_messages.loc[agg_messages.loc[:,'Message'] == 0, 'Message'] = None
 
     # Plot a line for each person onto both figures:
     for index, name in enumerate(participants):
-        view = messages[messages['Name'] == name]
+        view = agg_messages[agg_messages['Name'] == name]
 
         main_figure.add_trace(go.Scatter(x=view['Date'], y=view['Message'],
             name = name,
-            line_shape = 'linear',
+            line_shape = 'spline',
             opacity = 0.55,
             line = dict(color=colour_palette[index]),
             mode = 'lines+markers'

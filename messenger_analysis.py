@@ -100,10 +100,10 @@ app.layout = html.Div([
     html.Br(style = {'clear': 'both'}),
     html.Div([
         dcc.Tabs(id="pages", value='timeline', children = [
-            dcc.Tab(label = "Message Data", value = 'timeline'),
-            dcc.Tab(label = 'Reacts Data', value = 'reacts'),
-            dcc.Tab(label = "Message Log", value = "log")
-        ]),
+            dcc.Tab(label = "Message Data", value = 'timeline', className = 'tabs'),
+            dcc.Tab(label = 'Reacts Data', value = 'reacts', className = 'tabs'),
+            dcc.Tab(label = "Message Log", value = "log", className = 'tabs')
+        ], className = 'tabs'),
         html.Div(id = 'main-content', children = [
         ])], style = {"height": "50px", "width": "100%"}
     ),
