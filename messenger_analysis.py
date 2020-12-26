@@ -73,6 +73,7 @@ json_directory = json_directories['THELOVECHAT_BT-aNw8Nzg']
 #(message_df, reacts, title, participants) = parse_html_messages(directory)
 
 (message_df, reacts, title, participants) = parse_json_messages(json_directory)
+participants = sorted(participants)
 colour_palette = Category20[20][0:len(participants)]
 
 mt_fig = create_message_timeseries_fig(message_df, title, participants, colour_palette)
@@ -121,6 +122,7 @@ def parse_messages(chat_name):
     json_directory = json_directories[chat_titles[chat_name]]
     # need to find a good way to update the page with new data.
     (message_df, reacts, title, participants) = parse_json_messages(json_directory)
+    participants = sorted(participants)
     colour_palette = Category20[20][0:len(participants)]
     return (message_df, reacts, title, participants, colour_palette)
 
@@ -137,6 +139,7 @@ def switch_tabs(tab, chat_name):
         return dash.no_update
 
     (message_df, reacts, title, participants, colour_palette) = parse_messages(chat_name)
+    participants = sorted(participants)
 
     if tab == 'timeline':
         return create_message_timeseries_fig(message_df, title, participants, colour_palette)

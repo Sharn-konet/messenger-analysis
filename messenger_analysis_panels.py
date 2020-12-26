@@ -212,7 +212,8 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     react_pie_fig = go.Figure(
         data=[go.Pie(
             labels = list({*reacts_individual['Reacts']}),
-            values = reacts_individual[reacts_individual['Name'] == participants[0]]['Count']
+            values = reacts_individual[reacts_individual['Name'] == participants[0]]['Count'],
+            marker = {"colors": colour_palette[:len(participants)]}
         )]
     )
 
@@ -227,8 +228,9 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     react_bar_fig = go.Figure(
         [go.Bar(name = individual, 
                 x = reacts[individual].index.values, 
-                y = reacts[individual].values) 
-        for individual in participants]
+                y = reacts[individual].values,
+                marker = {"color": colour_palette[colour]}) 
+        for colour, individual in enumerate(participants)]
     )
 
     react_tooltip = [
