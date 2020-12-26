@@ -114,10 +114,7 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
     end_date = max(message_df.loc[:, 'Date'])
 
     # Create widget objects:
-
     main_figure = go.Figure()
-
-    
 
     # messages_tooltip = HoverTool(
     #     tooltips=[
@@ -170,8 +167,9 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
         width = 1500
     )
 
+    graph = dcc.Graph(id = 'timeline', figure = main_figure, responsive = True)
 
-    return dcc.Graph(id = 'timeline', figure = main_figure)
+    return graph
 
 
 def create_react_breakdown_panel(reacts, title, participants, colour_palette):

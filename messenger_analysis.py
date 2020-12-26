@@ -18,6 +18,7 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
 
 from dash.dependencies import Input, Output
 
@@ -104,8 +105,8 @@ app.layout = html.Div([
             dcc.Tab(label = 'Reacts Data', value = 'reacts', className = 'tabs'),
             dcc.Tab(label = "Message Log", value = "log", className = 'tabs')
         ], className = 'tabs'),
-        html.Div(id = 'main-content', children = [
-        ])], style = {"height": "50px", "width": "100%"}
+        dcc.Loading(id = 'main-content', children = [
+        ])], style = {"height": "100%", "width": "100%", "margin": "auto"}
     ),
     html.Div(id='signal', style = {'display': 'none'})], style = {'clear': 'both',
                  'position': 'relative',
