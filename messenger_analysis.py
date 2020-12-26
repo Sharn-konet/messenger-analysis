@@ -106,7 +106,7 @@ app.layout = html.Div([
             dcc.Tab(label = "Message Log", value = "log", className = 'tabs')
         ], className = 'tabs'),
         dcc.Loading(id = 'main-content', children = [
-        ])], style = {"height": "100%", "width": "100%", "margin": "auto"}
+        ], style = {"height": "100vh", "float": "left"})], style = {"height": "75vh", "width": "100%", "margin": "auto"}
     ),
     html.Div(id='signal', style = {'display': 'none'})], style = {'clear': 'both',
                  'position': 'relative',

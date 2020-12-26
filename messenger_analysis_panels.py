@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib as plt
 import plotly.graph_objects as go
 import dash_core_components as dcc
+import dash_html_components as html
 
 from functools import partial
 from math import pi
@@ -158,16 +159,23 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
         ))
 
     main_figure.update_layout(
-        title = title,
         xaxis_title = "Time",
         yaxis_title = "Total Messages",
         legend_title = "Participants",
         transition_duration = 800,
-        height = 500,
-        width = 1500
+        margin = {
+            't': 30
+        }
     )
 
-    graph = dcc.Graph(id = 'timeline', figure = main_figure, responsive = True)
+    graph = dcc.Graph(id = 'timeline', figure = main_figure,
+                      config = {
+                          #"autosizable": True,
+                          #"fillFrame": True,
+                          "showTips": True,
+                          "showAxisDragHandles": True,
+                          "showAxisRangeEntryBoxes": True
+                      })
 
     return graph
 
@@ -209,9 +217,11 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     )
 
     react_pie_fig.update_layout(
-        width = 423,
-        height = 423,
-        title = "Breakdown of Reacts from {}".format(participants[0])
+        title = "Breakdown of Reacts from {}".format(participants[0]),
+        margin = {
+            't': 80,
+            'l': 15
+        }
     )
 
     react_bar_fig = go.Figure(
@@ -228,17 +238,18 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     ]
 
     react_bar_fig.update_layout(
-        width = 1500,
-        height = 800,
+        margin = {'t': 30,
+                  'r': 15,
+                  'l': 50},
         barmode = 'stack'
     )
 
     graphs = [
-        dcc.Graph(id = 'react-graph', figure = react_bar_fig),
-        dcc.Graph(id = 'react-bar', figure = react_pie_fig)
+        dcc.Graph(id = 'react-graph', figure = react_bar_fig, style = {'width': "60%", "height": "75%", 'flex': '1'}),
+        dcc.Graph(id = 'react-bar', figure = react_pie_fig, style = {'width': "30%", "height": "75%"})
     ]
 
-    return graphs
+    return html.Div(graphs, style = {'display':'flex'})
 
     # bargraph_figure = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
     #             y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
@@ -246,9 +257,6 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
     # bargraph_figure.xaxis.major_label_text_font_size = "25pt"
     # bargraph_figure.toolbar.active_drag = None
     # bargraph_figure.toolbar.active_scroll = None
-
-    
-
 
     bargraph_figure.vbar_stack(
         participants,
