@@ -15,5 +15,7 @@ Currently, to run this project, you need to include a Facebook Data query in the
 The following command should then be run in the terminal:
 
 ```
-bokeh serve --show messenger_analysis.py
+python messenger_analysis.py
 ```
+
+After which a server will be opened on `localhost:8050`. To access this simply type `localhost:8050` into your browser.
