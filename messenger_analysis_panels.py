@@ -14,6 +14,7 @@ import matplotlib as plt
 import plotly.graph_objects as go
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table
 
 from functools import partial
 from math import pi
@@ -179,7 +180,6 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
 
     return graph
 
-
 def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     # def update_pie_chart(attr, old, new):
@@ -332,7 +332,7 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     return reacts_panel
 
-def create_message_log_panel(message_df, title, participants, colour_palette):
+def create_message_log_panel(message_df, participants):
 
     def filter_for_user(attr, old, new):
         df = deepcopy(message_df)
@@ -358,11 +358,51 @@ def create_message_log_panel(message_df, title, participants, colour_palette):
 
     # Create DataTable Widget:
 
+    message_data = message_df[message_df['Type']=='Message']
+    del message_data['Type']
+    del message_data['Details']
+
     columns = [
         TableColumn(field = "Message", title = "Message"),
         TableColumn(field = "Name", title = "Name", width = 10),
         TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"), width = 10)
     ]
+
+    table = html.Div(
+        children = [dash_table.DataTable(
+        id='datatable-interactivity',
+        columns=[
+            {"name": column, 'id': column} for column in message_data.columns
+        ],
+        tooltip_data=[
+        {
+            column: {'value': str(value), 'type': 'markdown'}
+            for column, value in row.items() if column == 'Message'
+        } for row in message_data.to_dict('records')
+        ],
+        tooltip_duration = None,
+        data=message_data.to_dict('records'),
+        filter_action="native",
+        sort_action="native",
+        sort_mode="multi",
+        row_deletable=False,
+        style_as_list_view = True,
+        style_header = {
+            'fontWeight': 'bold'
+        },
+        style_cell = {
+            'padding' : "0.5% 0.75% 0.5% 0.75%",
+            'textOverflow': 'ellipsis',
+            'maxWidth': '180px'
+        },
+        page_action="native",
+        page_current= 0,
+        page_size= 10,
+    )],
+    style = {"margin": "2%", "border-style": "solid", "border-width": "2px", "border-color": "grey"}
+    )
+
+    return table
 
     message_CDS = ColumnDataSource(message_df[message_df['Type']=='Message'])
 

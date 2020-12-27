@@ -146,7 +146,7 @@ def switch_tabs(tab, chat_name):
     elif tab == 'reacts':
         return create_react_breakdown_panel(reacts, title, participants, colour_palette)
     elif tab == 'log':
-        return create_message_log_panel()
+        return create_message_log_panel(message_df, participants)
 
 if __name__ == '__main__':
     app.run_server(debug = True)
