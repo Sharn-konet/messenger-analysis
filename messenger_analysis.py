@@ -97,17 +97,18 @@ app.layout = html.Div([
             })],
         style = {
             'margin': "1% 2.5%",
-            'width': '100%'
+            'width': '93vw',
+            "height": '5vh'
         }),
-    html.Br(style = {'clear': 'both'}),
+    html.Br(style = {'clear': 'both', "width": "100vw"}),
     html.Div([
         dcc.Tabs(id="pages", value='timeline', children = [
-            dcc.Tab(label = "Message Data", value = 'timeline', className = 'tabs'),
-            dcc.Tab(label = 'Reacts Data', value = 'reacts', className = 'tabs'),
-            dcc.Tab(label = "Message Log", value = "log", className = 'tabs')
+            dcc.Tab(label = "Message Data", value = 'timeline'),
+            dcc.Tab(label = 'Reacts Data', value = 'reacts'),
+            dcc.Tab(label = "Message Log", value = "log")
         ], className = 'tabs'),
         dcc.Loading(id = 'main-content', children = [
-        ], style = {"height": "100vh", "float": "left"})], style = {"height": "75vh", "width": "100%", "margin": "auto"}
+        ], type = 'default', className = 'loader')], className = 'main-body'
     ),
     html.Div(id='signal', style = {'display': 'none'})], style = {'clear': 'both',
                  'position': 'relative',

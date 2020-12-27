@@ -118,19 +118,6 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
     # Create widget objects:
     main_figure = go.Figure()
 
-    # messages_tooltip = HoverTool(
-    #     tooltips=[
-    #         ('Name', '@Name'),
-    #         ('Message Count', '@Message'),
-    #         ('Date', '@Date{%A, %e %B %Y}')
-    #     ],
-    #     formatters={
-    #         '@Date': "datetime"
-    #     }
-    # )
-
-    # main_figure.add_tools(messages_tooltip)
-
     messages = message_df.groupby(['Name', 'Date']).count().reset_index()
     messages = messages.loc[:, messages.columns != 'Reacts']
     
@@ -171,14 +158,14 @@ def create_message_timeseries_fig(message_df, title, participants, colour_palett
 
     graph = dcc.Graph(id = 'timeline', figure = main_figure,
                       config = {
-                          #"autosizable": True,
+                          "autosizable": True,
                           #"fillFrame": True,
                           "showTips": True,
                           "showAxisDragHandles": True,
                           "showAxisRangeEntryBoxes": True
                       })
 
-    return graph
+    return html.Div(graph, style = {"height": "100%"})
 
 def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
@@ -198,16 +185,12 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     reacts_individual = reacts_individual.apply(lambda x: pd.Series([*x, (x[2]/sums[x[0]])*2*pi, react_color[x[1]]], index = ['Name', 'Reacts', 'Count', 'Angle', 'Color']), axis = 1)
 
-    reacts_indiv_CDS = ColumnDataSource(reacts_individual)
-
     reacts = reacts.pivot(index='Reacts', columns='Name', values='Count').fillna(0)
 
     sums = reacts.sum(axis=1)
 
     for i in reacts.index:
         reacts.loc[i, :] = reacts.loc[i, :].apply(lambda x: (x/sums[i]))
-
-    reacts_source = ColumnDataSource(reacts)
 
     react_pie_fig = go.Figure(
         data=[go.Pie(
@@ -253,120 +236,12 @@ def create_react_breakdown_panel(reacts, title, participants, colour_palette):
 
     return html.Div(graphs, style = {'display':'flex'})
 
-    # bargraph_figure = figure(plot_width=700, plot_height=300, x_range=unique_reacts,
-    #             y_range=[0, 1], toolbar_location=None, tooltips=react_tooltip, sizing_mode = "scale_both")
-
-    # bargraph_figure.xaxis.major_label_text_font_size = "25pt"
-    # bargraph_figure.toolbar.active_drag = None
-    # bargraph_figure.toolbar.active_scroll = None
-
-    bargraph_figure.vbar_stack(
-        participants,
-        x="Reacts",
-        width=0.6,
-        source=reacts_source,
-        legend_label=participants,
-        color=colour_palette,
-        fill_alpha=0.5
-    )
-
-    bargraph_figure.yaxis.formatter = NumeralTickFormatter(format="0%")
-    legend = bargraph_figure.legend[0]
-    legend.orientation = 'horizontal'
-    legend.location = 'center_right'
-    legend.spacing = 7
-    bargraph_figure.add_layout(legend, 'above')
-    bargraph_figure.legend.label_text_font_size = "8pt"
-
-    piechart_tooltip = [
-        ("React", "@Reacts"),
-        ("Number of Reacts", "@Count")
-    ]
-
-    piechart_figure = figure(plot_width=423, plot_height=423, x_range=(-0.5, 1),
-                toolbar_location=None, tools="hover", tooltips=piechart_tooltip, sizing_mode = "fixed")
-
-    piechart_figure.title.align = 'center'
-    piechart_figure.title.border_line_dash = 'solid'
-    piechart_figure.title.text_font_size = '15px'
-    piechart_figure.title.offset = 5
-
-    pie_chart_selection = Select(value = participants[0], title = "Target Participant", options = participants, sizing_mode = "stretch_both")
-
-    pie_chart_selection.on_change("value", update_pie_chart)
-
-    for name in participants:
-        view = CDSView(source=reacts_indiv_CDS,
-                    filters=[GroupFilter(column_name='Name', group=name)])
-
-        piechart_figure.wedge(x=0.1, y=1, radius=0.5,
-                source=reacts_indiv_CDS, view=view,
-                start_angle=cumsum('Angle', include_zero=True), end_angle=cumsum('Angle'),
-                line_color="white", fill_color='Color', legend_field= 'Reacts')
-
-    react_page_spacer = Spacer(height = 200, height_policy = "fit", margin = (50,50,50,50))
-
-    update_pie_chart('value', participants[0], participants[0])
-
-    piechart_figure.xgrid.grid_line_color = None
-    piechart_figure.ygrid.grid_line_color = None
-    piechart_figure.toolbar.active_drag = None
-    piechart_figure.toolbar.active_scroll = None
-    piechart_figure.axis.axis_label = None
-    piechart_figure.axis.visible = False
-    piechart_figure.grid.grid_line_color = None
-
-    piechart_figure.legend.label_text_font_size = '15pt'
-    piechart_figure.legend.spacing = 19
-
-    react_indiv_column = column(piechart_figure, pie_chart_selection, sizing_mode = "fixed")
-
-    reacts_panel = layout([
-        [bargraph_figure, react_indiv_column],
-        [react_page_spacer]
-    ], sizing_mode="scale_both")
-
-    reacts_panel.margin = (10, 35, 60, 20)
-
-    reacts_panel = Panel(child=reacts_panel, title='Reacts Data')
-
-    return reacts_panel
-
 def create_message_log_panel(message_df, participants):
 
-    def filter_for_user(attr, old, new):
-        df = deepcopy(message_df)
-        df = df[df['Type']=='Message']
-        if new in participants:
-            df = df[df['Name'] == new]
-            message_CDS.data = df
-        elif new == 'all':
-            message_CDS.data = df
-
-    # Old version, probably not so relevant anymore
-    type_counts = message_df.groupby(['Name', 'Type']).count().reset_index()
-
-    type_counts = ColumnDataSource(type_counts)
-
-    type_bar_graph = figure(x_range= [*message_df['Type'].unique()] , plot_height=350, title="Distribution of Types",
-           toolbar_location=None, tools="")
-
-    type_bar_graph.vbar(source = type_counts, x='Type', top='Message', width=0.9)
-
-    type_bar_graph.xgrid.grid_line_color = None
-    type_bar_graph.y_range.start = 0
-
     # Create DataTable Widget:
-
     message_data = message_df[message_df['Type']=='Message']
     del message_data['Type']
     del message_data['Details']
-
-    columns = [
-        TableColumn(field = "Message", title = "Message"),
-        TableColumn(field = "Name", title = "Name", width = 10),
-        TableColumn(field = "Date", title = "Date", formatter = DateFormatter(format = "%d/%m/%Y"), width = 10)
-    ]
 
     table = html.Div(
         children = [dash_table.DataTable(
@@ -399,35 +274,10 @@ def create_message_log_panel(message_df, participants):
         page_current= 0,
         page_size= 10,
     )],
-    style = {"margin": "2%", "border-style": "solid", "border-width": "2px", "border-color": "grey"}
+    style = {"margin": "2%", "border-style": "groove", "border-width": "2px", "border-color": "lightgrey"}
     )
 
     return table
-
-    message_CDS = ColumnDataSource(message_df[message_df['Type']=='Message'])
-
-    data_table = DataTable(source = message_CDS, columns = columns, fit_columns = True, width = 700, height = 350)
-
-    directory_search = AutocompleteInput(completions = participants, width = 400, height = 30, sizing_mode = "fixed", align = 'start')
-    directory_search.on_change("value", filter_for_user)
-
-    filter_text = Div(
-        text = "Filter for a Particular User:",
-        height_policy = "max",
-        sizing_mode = "scale_both",
-        align = "end",
-        style = {"font-family": 'Verdana', "font-size": "17px"}
-    )
-    
-    filter_input = row(filter_text, directory_search)
-
-    message_log_panel = layout([
-        column(filter_input, data_table, sizing_mode = "scale_both")
-    ], sizing_mode = "scale_both")
-
-    message_log_panel = Panel(child=message_log_panel, title='Message Log')
-
-    return message_log_panel
 
 def create_individual_statistics_panel(message_df, title, participants, colour_palette):
     """ Create a panel which summarises the individual statistics of any user within the selected group.
